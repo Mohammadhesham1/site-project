@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="theme-color" content="#080808"/>
+<link rel="manifest" href="manifest.json"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Cinema Eldon"/>
+<title>Cinema Eldon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:#080808;color:#f0f0f0;font-family:'Cairo',sans-serif;min-height:100vh;overflow-x:hidden;}
+.hide-scrollbar::-webkit-scrollbar{display:none;}
+.hide-scrollbar{scrollbar-width:none;-ms-overflow-style:none;}
+#loading{position:fixed;inset:0;background:#080808;display:flex;align-items:center;
+  justify-content:center;flex-direction:column;gap:20px;z-index:9999;transition:opacity .4s;}
+#loading .logo{width:60px;height:60px;border-radius:14px;background:linear-gradient(135deg,#c9a84c,#8a6a20);
+  display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(201,168,76,.4);
+  animation:pulse 1.5s ease-in-out infinite;}
+@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.06);}}
+@keyframes popIn{from{opacity:0;transform:scale(.88);}to{opacity:1;transform:scale(1);}}
+@keyframes slideUp{from{opacity:0;transform:translateY(22px);}to{opacity:1;transform:translateY(0);}}
+@keyframes sk{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.sk{background:linear-gradient(90deg,#1a1a1a 25%,#252525 50%,#1a1a1a 75%);
+  background-size:400% 100%;animation:sk 1.5s infinite;}
+
+/* ── PLAYER MODAL ── */
+#modal{position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.92);backdrop-filter:blur(12px);
+  display:none;align-items:center;justify-content:center;padding:1rem;overflow-y:auto;}
+#modal.open{display:flex;}
+.modal-box{width:100%;max-width:960px;background:#0e0e0e;border-radius:14px;overflow:hidden;
+  animation:popIn .28s ease;position:relative;box-shadow:0 40px 80px rgba(0,0,0,.9);}
+.modal-close{position:absolute;top:12px;right:12px;z-index:30;background:rgba(0,0,0,.75);
+  border:1px solid rgba(255,255,255,.12);color:#fff;width:36px;height:36px;border-radius:50%;
+  cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:background .2s;}
+.modal-close:hover{background:rgba(201,168,76,.8);}
+
+/* ── PLAYER ── */
+.player-wrap{width:100%;aspect-ratio:16/9;background:#000;position:relative;overflow:hidden;}
+.player-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:none;display:block;}
+/* Overlay is pointer-events:none — iframe gets ALL clicks */
+#ply_overlay{position:absolute;inset:0;z-index:5;pointer-events:none;}
+#ply_flash{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);
+  width:72px;height:72px;border-radius:50%;background:rgba(0,0,0,.55);
+  display:flex;align-items:center;justify-content:center;pointer-events:none;}
+#ply_flash.fire{animation:plyPop .52s cubic-bezier(.25,.46,.45,.94) forwards;}
+@keyframes plyPop{0%{transform:translate(-50%,-50%) scale(0);opacity:1;}
+  40%{transform:translate(-50%,-50%) scale(1.15);opacity:.9;}
+  100%{transform:translate(-50%,-50%) scale(1.7);opacity:0;}}
+.ply-skip{position:absolute;top:0;bottom:0;width:30%;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:6px;pointer-events:none;opacity:0;border-radius:100vw;}
+#ply_skip_L{left:0;background:radial-gradient(ellipse at 20% 50%,rgba(201,168,76,.2),transparent 70%);}
+#ply_skip_R{right:0;background:radial-gradient(ellipse at 80% 50%,rgba(201,168,76,.2),transparent 70%);}
+.ply-skip.fire{animation:skipRipple .72s ease forwards;}
+@keyframes skipRipple{0%{opacity:0;}20%{opacity:1;}75%{opacity:1;}100%{opacity:0;}}
+.ply-skip svg{filter:drop-shadow(0 0 6px rgba(201,168,76,.9));}
+.ply-skip span{color:#fff;font-size:.72rem;font-family:'Cairo',sans-serif;font-weight:700;text-shadow:0 1px 6px rgba(0,0,0,.9);}
+
+/* TV nav */
+#tv_nav{display:none;align-items:center;justify-content:space-between;padding:10px 22px 0;}
+.tv-nav-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#f0f0f0;
+  border-radius:8px;padding:7px 16px;cursor:pointer;font-family:'Cairo',sans-serif;font-size:.8rem;
+  transition:all .2s;display:flex;align-items:center;gap:6px;}
+.tv-nav-btn:hover{background:rgba(201,168,76,.15);border-color:rgba(201,168,76,.35);color:#c9a84c;}
+.tv-nav-btn:disabled{opacity:.3;cursor:not-allowed;}
+#tv_ep_label{color:#888;font-size:.82rem;font-family:'Cairo',sans-serif;}
+.modal-body{padding:16px 22px 22px;}
+.modal-title{font-size:1.3rem;font-weight:900;margin-bottom:8px;color:#fff;}
+.modal-meta{display:flex;gap:10px;flex-wrap:wrap;font-size:.82rem;color:#555;align-items:center;}
+.modal-rating{color:#c9a84c;font-weight:700;}
+.modal-gpill{background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.25);
+  color:#c9a84c;font-size:.72rem;padding:2px 9px;border-radius:4px;}
+
+/* ── DETAILS MODAL ── */
+#details_modal{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.96);backdrop-filter:blur(18px);
+  display:none;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto;}
+#details_modal.open{display:flex;}
+.det-box{width:100%;max-width:920px;background:#111;border-radius:16px;overflow:hidden;
+  animation:slideUp .32s ease;position:relative;margin:auto;box-shadow:0 40px 100px rgba(0,0,0,.9);}
+.det-back-wrap{width:100%;aspect-ratio:21/7;position:relative;overflow:hidden;}
+.det-back-wrap img{width:100%;height:100%;object-fit:cover;filter:brightness(.5);}
+.det-back-grad{position:absolute;inset:0;background:linear-gradient(to top,#111 0%,rgba(17,17,17,.55) 45%,transparent 100%);}
+.det-close{position:absolute;top:14px;right:14px;z-index:30;background:rgba(0,0,0,.72);
+  border:1px solid rgba(255,255,255,.12);color:#fff;width:36px;height:36px;border-radius:50%;
+  cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;transition:background .2s;}
+.det-close:hover{background:rgba(201,168,76,.8);}
+.det-body{display:flex;gap:22px;padding:0 26px 24px;position:relative;}
+.det-poster{flex-shrink:0;width:130px;margin-top:-60px;position:relative;z-index:5;
+  border-radius:10px;overflow:hidden;box-shadow:0 14px 44px rgba(0,0,0,.75);}
+.det-poster img{width:100%;display:block;}
+.det-poster-ph{width:100%;aspect-ratio:2/3;background:linear-gradient(135deg,#1a1200,#0a0800);
+  display:flex;align-items:center;justify-content:center;}
+.det-info{flex:1;min-width:0;padding-top:12px;}
+.det-title{font-size:1.45rem;font-weight:900;color:#fff;margin-bottom:10px;line-height:1.25;}
+.det-meta-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center;}
+.det-rating{color:#c9a84c;font-weight:700;font-size:.88rem;display:flex;align-items:center;gap:4px;}
+.det-year{color:#555;font-size:.84rem;display:flex;align-items:center;gap:4px;}
+.det-pill{background:rgba(201,168,76,.1);border:1px solid rgba(201,168,76,.25);
+  color:#c9a84c;font-size:.71rem;padding:2px 9px;border-radius:4px;}
+.det-overview{color:rgba(255,255,255,.5);font-size:.88rem;line-height:1.75;margin-bottom:22px;}
+.det-btn{display:inline-flex;align-items:center;gap:10px;background:#c9a84c;border:none;
+  border-radius:10px;color:#000;cursor:pointer;padding:12px 28px;font-family:'Cairo',sans-serif;
+  font-size:.95rem;font-weight:700;box-shadow:0 8px 24px rgba(201,168,76,.38);transition:transform .2s,box-shadow .2s;}
+.det-btn:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(201,168,76,.52);}
+
+/* seasons */
+.det-seasons{padding:0 26px 10px;border-top:1px solid rgba(255,255,255,.05);}
+.det-lbl{color:#444;font-size:.74rem;letter-spacing:.07em;text-transform:uppercase;margin:16px 0 10px;}
+.season-pills{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;}
+.season-pills::-webkit-scrollbar{display:none;}
+.season-pill{flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  color:#888;border-radius:8px;padding:6px 16px;cursor:pointer;font-family:'Cairo',sans-serif;
+  font-size:.8rem;transition:all .2s;}
+.season-pill.active,.season-pill:hover{background:rgba(201,168,76,.15);
+  border-color:rgba(201,168,76,.4);color:#c9a84c;}
+.det-episodes{padding:0 26px 24px;}
+.ep-grid{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;}
+.ep-grid::-webkit-scrollbar{display:none;}
+.ep-item{flex-shrink:0;width:200px;cursor:pointer;border-radius:8px;overflow:hidden;
+  background:#1a1a1a;transition:transform .2s,box-shadow .2s;position:relative;}
+.ep-item:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(0,0,0,.6);}
+.ep-thumb{width:100%;aspect-ratio:16/9;position:relative;overflow:hidden;background:#0a0800;}
+.ep-thumb img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s;}
+.ep-item:hover .ep-thumb img{transform:scale(1.06);}
+.ep-thumb-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;}
+.ep-play-over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.06);transition:background .2s;}
+.ep-item:hover .ep-play-over{background:rgba(0,0,0,.5);}
+.ep-play-c{width:38px;height:38px;border-radius:50%;background:rgba(201,168,76,.9);
+  display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;
+  box-shadow:0 2px 12px rgba(201,168,76,.5);}
+.ep-item:hover .ep-play-c{opacity:1;}
+.ep-info{padding:8px 10px 10px;}
+.ep-num{font-size:.68rem;color:#555;margin-bottom:2px;font-family:'Cairo',sans-serif;}
+.ep-name{font-size:.8rem;color:#e0e0e0;font-weight:600;display:-webkit-box;
+  -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  font-family:'Cairo',sans-serif;line-height:1.35;}
+
+/* cast */
+.det-cast{padding:16px 26px 26px;border-top:1px solid rgba(255,255,255,.05);}
+.cast-row{display:flex;gap:14px;overflow-x:auto;padding-bottom:4px;}
+.cast-row::-webkit-scrollbar{display:none;}
+.cast-card{flex-shrink:0;width:72px;text-align:center;}
+.cast-card img,.cast-card .cast-ph{width:52px;height:52px;border-radius:50%;object-fit:cover;
+  margin:0 auto 6px;display:block;border:2px solid rgba(201,168,76,.2);}
+.cast-card .cast-ph{background:#1a1200;display:flex;align-items:center;justify-content:center;}
+.cast-card p{font-size:.62rem;color:#777;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.cast-card .cast-char{font-size:.58rem;color:#3a3a3a;margin-top:1px;}
+
+/* toast */
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(30px);z-index:9999;
+  background:#c9a84c;color:#000;padding:9px 22px;border-radius:6px;font-size:.88rem;font-weight:700;
+  opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+
+/* ── PHONE ── */
+@media(max-width:599px){
+  :root{--card-min:130px;--row-pad:16px;--hdr-h:56px;}
+  #app header{padding:0 16px!important;height:var(--hdr-h)!important;}
+  .hero-content{padding:52px 18px 38px!important;}
+  .modal-body{padding:10px 12px 14px;}
+  .modal-title{font-size:1rem;}
+  .det-body{flex-direction:column;}
+  .det-poster{width:90px;margin-top:-44px;}
+  .det-title{font-size:1.1rem;}
+  .det-back-wrap{aspect-ratio:16/7;}
+  .row-scroll{padding:0 16px!important;}
+  .ep-card-w{width:130px!important;}
+}
+/* ── TABLET ── */
+@media(min-width:600px) and (max-width:1023px){
+  :root{--card-min:150px;--row-pad:22px;--hdr-h:62px;}
+  #app header{padding:0 22px!important;}
+  .hero-content{padding:80px 30px 56px!important;}
+  .det-body{flex-direction:row;}
+  .det-poster{width:130px;}
+  .det-title{font-size:1.35rem;}
+  .ep-card-w{width:150px!important;}
+  .search-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))!important;}
+}
+/* ── DESKTOP ── */
+@media(min-width:1024px) and (max-width:1599px){
+  :root{--card-min:170px;--row-pad:36px;--hdr-h:68px;}
+  #app header{padding:0 36px!important;}
+  .hero-content{padding:100px 44px 72px!important;}
+  .det-poster{width:150px;}
+  .det-title{font-size:1.6rem;}
+  .ep-card-w{width:180px!important;}
+  .search-grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))!important;}
+  .modal-box{max-width:1100px!important;}
+  .det-box{max-width:1000px!important;}
+}
+/* Focus ring for TV/keyboard navigation */
+.ep-card:focus,.det-btn:focus,.season-pill:focus,.ep-item:focus,.det-close:focus,.modal-close:focus,.tv-nav-btn:focus{
+  outline:3px solid #c9a84c!important;
+  outline-offset:3px;
+  border-radius:10px;
+  box-shadow:0 0 0 6px rgba(201,168,76,.15)!important;
+}
+/* ── TV / BIG SCREEN ── */
+@media(min-width:1600px){
+  :root{--card-min:200px;--row-pad:56px;--hdr-h:80px;}
+  body{font-size:18px;}
+  #app header{padding:0 56px!important;height:var(--hdr-h)!important;}
+  .hero-content{padding:130px 64px 90px!important;}
+  .hero-title{font-size:3.2rem!important;}
+  .hero-overview{font-size:1.05rem!important;max-width:600px!important;}
+  .row-title{font-size:1.2rem!important;}
+  .row-scroll{padding:0 56px!important;}
+  .ep-card-w{width:220px!important;}
+  .ep-card-w .ep-card div[style*="font-size:.88rem"]{font-size:1rem!important;}
+  .search-grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))!important;}
+  .modal-box{max-width:1400px!important;border-radius:20px!important;}
+  .det-box{max-width:1200px!important;border-radius:22px!important;}
+  .det-poster{width:190px!important;}
+  .det-title{font-size:2rem!important;}
+  .det-overview{font-size:1rem!important;}
+  .det-btn{padding:16px 40px!important;font-size:1.1rem!important;}
+  .season-pill{padding:10px 24px!important;font-size:.95rem!important;}
+  .ep-item{width:260px!important;}
+  /* TV focus ring */
+  .tv-focusable:focus{outline:3px solid #c9a84c!important;outline-offset:3px;border-radius:10px;}
+  #bnav{display:none!important;}
+}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="logo">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="#000"><polygon points="5,3 19,12 5,21"/></svg>
+  </div>
+  <p style="color:#444;font-size:.88rem;">جاري التحميل…</p>
+</div>
+<div id="app"></div>
+
+<!-- PLAYER MODAL -->
+<div id="modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="player-wrap" id="player_wrap">
+      <iframe id="player_iframe" allowfullscreen allow="autoplay;fullscreen"
+        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-fullscreen allow-presentation"></iframe>
+      <div id="ply_overlay">
+        <div id="ply_flash">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
+        </div>
+        <div class="ply-skip" id="ply_skip_L">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="#c9a84c"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+          <span>10 ثانية</span>
+        </div>
+        <div class="ply-skip" id="ply_skip_R">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="#c9a84c"><path d="M6 18l8.5-6L6 6v12zm2.5-6 8.5 6V6l-8.5 6zM16 6h2v12h-2z"/></svg>
+          <span>10 ثانية</span>
+        </div>
+      </div>
+    </div>
+    <div id="tv_nav">
+      <button class="tv-nav-btn" id="tv_prev_btn" onclick="navigateEpisode(-1)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+        السابقة
+      </button>
+      <span id="tv_ep_label"></span>
+      <button class="tv-nav-btn" id="tv_next_btn" onclick="navigateEpisode(1)">
+        التالية
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-title" id="modal_title"></div>
+      <div class="modal-meta"  id="modal_meta"></div>
+    </div>
+  </div>
+</div>
+
+<!-- DETAILS MODAL -->
+<div id="details_modal">
+  <div class="det-box" id="det_box"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────
+//  CACHE
+// ─────────────────────────────────────────
+const APP_VER='v5';
+function cacheSet(k,d){try{localStorage.setItem('ce_'+APP_VER+'_'+k,JSON.stringify(d));}catch{}}
+function cacheGet(k){try{const r=localStorage.getItem('ce_'+APP_VER+'_'+k);return r?JSON.parse(r):null;}catch{return null;}}
+
+// ─────────────────────────────────────────
+//  CONFIG
+// ─────────────────────────────────────────
+const ACCENT      = '#c9a84c';
+const TMDB_KEY    = '51e80360b89719c5cedcadf665f0fd1f';
+const TMDB_IMG    = 'https://image.tmdb.org/t/p/w500';
+const TMDB_STILL  = 'https://image.tmdb.org/t/p/w300';
+const TMDB_BG     = 'https://image.tmdb.org/t/p/w1280';
+const PLAYER      = 'https://vaplayer.ru/embed';
+
+// ─────────────────────────────────────────
+//  GLOBAL REGISTRY — no JSON inside onclick
+// ─────────────────────────────────────────
+window.__MV  = {};   // key -> movie/show object
+window.__TVS = {};   // tmdb_id -> [{n,count}]
+window.__EPS = {};   // `${tmdb}_s${n}` -> episodes[]
+window.__CTV = null; // current TV playback
+let __idx = 0;
+
+function regM(m){ const k='mv'+(++__idx); window.__MV[k]=m; return k; }
+function getM(k){ return typeof k==='string' ? window.__MV[k] : k; }
+
+// ─────────────────────────────────────────
+//  DATA
+// ─────────────────────────────────────────
+const TOP250=[
+['tt0111161',278,'The Shawshank Redemption',1994,9.3],
+['tt0068646',238,'The Godfather',1972,9.2],
+['tt0468569',155,'The Dark Knight',2008,9.0],
+['tt0071562',240,'The Godfather Part II',1974,9.0],
+['tt0050083',389,'12 Angry Men',1957,9.0],
+['tt0108052',424,'Schindlers List',1993,9.0],
+['tt0167260',122,'The Lord of the Rings: The Return of the King',2003,9.0],
+['tt0110912',680,'Pulp Fiction',1994,8.9],
+['tt0120737',120,'The Lord of the Rings: The Fellowship of the Ring',2001,8.9],
+['tt0060196',429,'The Good the Bad and the Ugly',1966,8.8],
+['tt0109830',13,'Forrest Gump',1994,8.8],
+['tt0167261',121,'The Lord of the Rings: The Two Towers',2002,8.8],
+['tt0137523',550,'Fight Club',1999,8.8],
+['tt1375666',27205,'Inception',2010,8.8],
+['tt0080684',1891,'The Empire Strikes Back',1980,8.7],
+['tt0133093',603,'The Matrix',1999,8.7],
+['tt0099685',769,'Goodfellas',1990,8.7],
+['tt0073486',1080,'One Flew Over the Cuckoos Nest',1975,8.7],
+['tt1160419',438631,'Dune: Part Two',2024,8.7],
+['tt0114369',807,'Se7en',1995,8.6],
+['tt0816692',157336,'Interstellar',2014,8.7],
+['tt0076759',11,'Star Wars',1977,8.6],
+['tt0245429',129,'Spirited Away',2001,8.6],
+['tt0102926',274,'The Silence of the Lambs',1991,8.6],
+['tt0120815',786,'Saving Private Ryan',1998,8.6],
+['tt0317248',598,'City of God',2002,8.6],
+['tt0118799',637,'Life Is Beautiful',1997,8.6],
+['tt0120689',497,'The Green Mile',1999,8.6],
+['tt0103064',399,'Terminator 2: Judgment Day',1991,8.6],
+['tt0056058',11362,'Harakiri',1962,8.6],
+['tt0088763',105,'Back to the Future',1985,8.5],
+['tt0054215',539,'Psycho',1960,8.5],
+['tt0120382',680,'The Truman Show',1998,8.5],
+['tt0110413',101,'Léon The Professional',1994,8.5],
+['tt0482571',264,'The Prestige',2006,8.5],
+['tt0253474',240,'The Pianist',2002,8.5],
+['tt0172495',1366,'Gladiator',2000,8.5],
+['tt0407887',18491,'The Departed',2006,8.5],
+['tt0034583',289,'Casablanca',1942,8.5],
+['tt0047478',11643,'Seven Samurai',1954,8.6],
+['tt0114814',489,'The Usual Suspects',1995,8.5],
+['tt0078788',578,'Apocalypse Now',1979,8.4],
+['tt0057012',935,'Dr. Strangelove',1964,8.4],
+['tt0078748',348,'Alien',1979,8.4],
+['tt0082971',87,'Raiders of the Lost Ark',1981,8.4],
+['tt0209144',745,'Memento',2000,8.5],
+['tt0043014',539,'Sunset Boulevard',1950,8.4],
+['tt0047396',694,'Rear Window',1954,8.5],
+['tt1853728',49026,'The Dark Knight Rises',2012,8.4],
+['tt0051201',1954,'Witness for the Prosecution',1957,8.4],
+['tt0364569',207,'Oldboy',2003,8.1],
+['tt0095765',11658,'Cinema Paradiso',1988,8.5],
+['tt0119217',9808,'Good Will Hunting',1997,8.3],
+['tt0090605',679,'Aliens',1986,8.4],
+['tt0022100',236,'M',1931,8.3],
+['tt0025316',538,'It Happened One Night',1934,8.2],
+['tt1345836',49521,'The Dark Knight Returns',2012,8.4],
+['tt0198781',585,'Monsters Inc',2001,8.1],
+['tt0910970',10681,'WALL·E',2008,8.4],
+['tt0405094',4806,'The Lives of Others',2006,8.4],
+['tt0075314',9614,'Taxi Driver',1976,8.2],
+['tt0986264',36557,'Coco',2017,8.4],
+['tt0040522',11234,'Bicycle Thieves',1948,8.3],
+['tt0062622',601,'2001: A Space Odyssey',1968,8.3],
+['tt0052357',218,'Vertigo',1958,8.3],
+['tt0081505',694,'The Shining',1980,8.4],
+['tt0105236',569,'Reservoir Dogs',1992,8.3],
+['tt0064116',11536,'Once Upon a Time in the West',1968,8.5],
+['tt0032553',770,'The Great Dictator',1940,8.4],
+['tt0027977',193,'Modern Times',1936,8.5],
+['tt0087843',637,'Once Upon a Time in America',1984,8.3],
+['tt0053604',14160,'The Apartment',1960,8.3],
+['tt0053125',218,'North by Northwest',1959,8.3],
+['tt0097576',10567,'Indiana Jones and the Last Crusade',1989,8.2],
+['tt0031381',233,'Gone with the Wind',1939,8.2],
+['tt0338013',18160,'Eternal Sunshine of the Spotless Mind',2004,8.3],
+['tt0073195',578,'Jaws',1975,8.1],
+['tt0120586',9443,'American History X',1998,8.5],
+['tt0059742',10020,'The Sound of Music',1965,8.1],
+['tt0047528',11943,'Tokyo Story',1953,8.1],
+['tt0114709',862,'Toy Story',1995,8.3],
+['tt0071853',11174,'Monty Python and the Holy Grail',1975,8.2],
+['tt0095327',7916,'Grave of the Fireflies',1988,8.5],
+['tt0044741',238,'Ikiru',1952,8.3],
+['tt0211915',194,'Amélie',2001,8.3],
+['tt0050976',389,'The Seventh Seal',1957,8.1],
+['tt0112573',9800,'Braveheart',1995,8.4],
+['tt0169547',1574,'American Beauty',1999,8.3],
+['tt0066921',17177,'A Clockwork Orange',1971,8.3],
+['tt0089881',5765,'Platoon',1986,8.0],
+['tt0012349',17816,'The Kid',1921,8.3],
+['tt0070735',2898,'The Sting',1973,8.3],
+['tt0086190',1892,'Star Wars Return of the Jedi',1983,8.3],
+['tt0083658',78,'Blade Runner',1982,8.1],
+['tt0364088',9522,'3 Idiots',2009,8.4],
+['tt0116282',14537,'Fargo',1996,8.1],
+['tt0361748',18621,'Inglourious Basterds',2009,8.3],
+['tt0042192',11340,'All About Eve',1950,8.2],
+['tt0993846',106646,'The Wolf of Wall Street',2013,8.0],
+['tt0055630',11426,'Yojimbo',1961,8.2],
+['tt0052618',1624,'Ben-Hur',1959,8.1],
+['tt0089218',8392,'Come and See',1985,8.3],
+['tt0057565',12520,'High and Low',1963,8.4],
+['tt0042876',12311,'Rashomon',1950,8.2],
+['tt1130884',37724,'Skyfall',2012,7.8],
+['tt0025164',11576,'Duck Soup',1933,7.9],
+['tt0208092',4592,'Snatch',2000,8.3],
+['tt0266697',10518,'Kill Bill Vol 1',2003,8.2],
+['tt1074638',264660,'Skyfall',2012,7.7],
+['tt0180093',9532,'Requiem for a Dream',2000,8.4],
+['tt0120735',504,'Lock Stock and Two Smoking Barrels',1998,8.2],
+['tt0058946',8729,'The Battle of Algiers',1966,8.1],
+['tt0053291',615,'Some Like It Hot',1959,8.2],
+['tt0070047',38365,'The Exorcist',1973,8.1],
+['tt0353969',11798,'Memories of Murder',2003,8.0],
+['tt1187043',301528,'3 Idiots',2009,8.4],
+['tt0050212',10829,'The Bridge on the River Kwai',1957,8.1],
+['tt0055031',11798,'Judgment at Nuremberg',1961,8.2],
+['tt1392190',76341,'Mad Max: Fury Road',2015,8.1],
+['tt1954470',123025,'Whiplash',2014,8.5],
+['tt0338348',12429,'Mystic River',2003,7.9],
+['tt0047296',11234,'Roman Holiday',1953,7.9],
+['tt2582802',244786,'Whiplash',2014,8.5],
+['tt0078993',8470,'The Deer Hunter',1978,8.1],
+['tt0113277',497,'Heat',1995,8.3],
+['tt0116231',11517,'Michael Collins',1996,7.6],
+['tt0082096',218,'Das Boot',1981,8.4],
+['tt0079944',9533,'Stalker',1979,8.1],
+['tt0070511',9532,'Badlands',1973,7.8],
+['tt0071411',11517,'Chinatown',1974,8.1],
+['tt0038650',22683,'Its a Wonderful Life',1946,8.6],
+['tt0015864',62,'The Gold Rush',1925,8.1],
+['tt0055256',22302,'Lawrence of Arabia',1962,8.3],
+['tt0266543',14160,'Finding Nemo',2003,8.2],
+['tt0120338',597,'Titanic',1997,7.9],
+['tt0118694',18491,'In the Mood for Love',2000,8.1],
+['tt1675434',65759,'The Intouchables',2011,8.5],
+['tt0107290',329,'Jurassic Park',1993,8.2],
+['tt0093058',637,'Full Metal Jacket',1987,8.3],
+['tt0071315',11517,'Chinatown',1974,8.1],
+['tt0053779',218,'LAvventura',1960,7.9],
+['tt1853728',49026,'The Dark Knight Rises',2012,8.4],
+['tt2024544',174,'12 Years a Slave',2013,8.1],
+['tt0072684',18000,'Barry Lyndon',1975,8.1],
+['tt0036775',20728,'Double Indemnity',1944,8.2],
+['tt0045152',11173,'Singin in the Rain',1952,8.3],
+['tt0031679',11895,'Mr. Smith Goes to Washington',1939,8.2],
+['tt2096673',136799,'Inside Out',2015,8.2],
+['tt0066787',236,'Woodstock',1970,8.0],
+['tt0086879',10657,'Amadeus',1984,8.4],
+['tt0118715',10546,'The Big Lebowski',1998,8.1],
+['tt0120601',11252,'Ran',1985,8.2],
+['tt0077416',11517,'All That Jazz',1979,7.9],
+['tt1130884',37724,'Skyfall',2012,7.8],
+['tt0372784',272,'Batman Begins',2005,8.2],
+['tt0097165',2105,'Dead Poets Society',1989,8.1],
+['tt0097814',10568,'My Neighbour Totoro',1988,8.2],
+['tt4154796',299534,'Avengers: Endgame',2019,8.4],
+['tt0048473',10087,'Pather Panchali',1955,8.4],
+['tt6751668',496243,'Parasite',2019,8.5],
+['tt0093779',8587,'The Princess Bride',1987,8.0],
+['tt0119488',10529,'L.A. Confidential',1997,8.2],
+['tt0054997',216,'Spartacus',1960,7.9],
+['tt0116786',985,'Trainspotting',1996,8.1],
+['tt0053472',11972,'Breathless',1960,7.8],
+['tt0435761',301528,'Toy Story 3',2010,8.3],
+['tt0892769',10144,'How to Train Your Dragon',2010,8.1],
+['tt2106476',241254,'The Hunt',2012,8.3],
+['tt0021749',11517,'City Lights',1931,8.5],
+['tt1049413',68718,'Django Unchained',2012,8.4],
+['tt0476735',77174,'My Father and My Son',2005,8.3],
+['tt0101414',8580,'Beauty and the Beast',1991,8.0],
+['tt0054047',11178,'Wild Strawberries',1957,8.1],
+['tt0056592',17711,'To Kill a Mockingbird',1962,8.2],
+['tt0052311',236,'Touch of Evil',1958,7.9],
+['tt0077651',1372,'Animal House',1978,7.5],
+['tt0032976',11563,'Rebecca',1940,8.1],
+['tt0046268',10831,'The Wild One',1953,6.9],
+['tt3480822',332562,'A Star Is Born',2018,7.6],
+['tt0816692',157336,'Interstellar',2014,8.7],
+['tt0477348',15070,'No Country for Old Men',2007,8.1],
+['tt0050986',87,'Paths of Glory',1957,8.5],
+['tt0371746',1726,'Iron Man',2008,7.9],
+['tt0251076',4638,'Amelie from Montmartre',2001,8.3],
+['tt5074352',354912,'Coco',2017,8.4],
+['tt2948356',328387,'Zootopia',2016,7.9],
+['tt0088247',1408,'The Terminator',1984,8.1],
+['tt0111161',278,'The Shawshank Redemption',1994,9.3],
+['tt0052077',20485,'Throne of Blood',1957,8.1],
+['tt1392190',76341,'Mad Max Fury Road',2015,8.1],
+['tt1840309',264644,'The Grand Budapest Hotel',2014,8.1],
+['tt2278388',264644,'The Grand Budapest Hotel',2014,8.1],
+['tt0945513',399174,'Doctor Sleep',2019,7.3],
+['tt0301357',9802,'Good Night and Good Luck',2005,7.5],
+['tt0120737',120,'The Lord of the Rings The Fellowship',2001,8.9],
+['tt0169547',1574,'American Beauty',1999,8.3],
+['tt0401792',14549,'Sin City',2005,8.0],
+['tt2119532',153518,'Hacksaw Ridge',2016,8.1],
+['tt0443453',12429,'Blood Diamond',2006,7.7],
+['tt1490017',130925,'The Lego Movie',2014,7.7],
+['tt4633694',297762,'Spider-Man: Into the Spider-Verse',2018,8.4],
+['tt3659388',286217,'The Martian',2015,8.0],
+['tt0060107',11517,'Blow-Up',1966,7.5],
+];
+const TOP10_SERIES=[
+  {tmdb:1396, tt:'tt0903747',title:'Breaking Bad',    year:2008,r:9.5},
+  {tmdb:1399, tt:'tt0944947',title:'Game of Thrones', year:2011,r:9.2},
+  {tmdb:1398, tt:'tt0141842',title:'The Sopranos',    year:1999,r:9.2},
+  {tmdb:1402, tt:'tt0306414',title:'The Wire',        year:2002,r:9.3},
+  {tmdb:87108,tt:'tt7366338',title:'Chernobyl',       year:2019,r:9.4},
+  {tmdb:4613, tt:'tt0185906',title:'Band of Brothers',year:2001,r:9.5},
+  {tmdb:46648,tt:'tt2356777',title:'True Detective',  year:2014,r:9.0},
+  {tmdb:19885,tt:'tt1475582',title:'Sherlock',        year:2010,r:9.1},
+  {tmdb:2316, tt:'tt0386676',title:'The Office',      year:2005,r:9.0},
+  {tmdb:1668, tt:'tt0108778',title:'Friends',         year:1994,r:8.9},
+];
+const MARVEL_LIST=[
+  {tt:'tt0371746', tmdb:1726,  title:'Iron Man',year:2008,r:7.9},
+  {tt:'tt1228705', tmdb:10138, title:'Iron Man 2',year:2010,r:7.0},
+  {tt:'tt0800369', tmdb:10195, title:'Thor',year:2011,r:7.0},
+  {tt:'tt0848228', tmdb:24428, title:'The Avengers',year:2012,r:8.0},
+  {tt:'tt1300854', tmdb:68721, title:'Iron Man 3',year:2013,r:7.1},
+  {tt:'tt1843866', tmdb:100402,title:'Captain America: The Winter Soldier',year:2014,r:7.7},
+  {tt:'tt2015381', tmdb:118340,title:'Guardians of the Galaxy',year:2014,r:8.0},
+  {tt:'tt2395427', tmdb:99861, title:'Avengers: Age of Ultron',year:2015,r:7.3},
+  {tt:'tt3501632', tmdb:284053,title:'Thor: Ragnarok',year:2017,r:7.9},
+  {tt:'tt1825683', tmdb:284054,title:'Black Panther',year:2018,r:7.3},
+  {tt:'tt4154756', tmdb:299536,title:'Avengers: Infinity War',year:2018,r:8.4},
+  {tt:'tt4154796', tmdb:299534,title:'Avengers: Endgame',year:2019,r:8.4},
+  {tt:'tt9376612', tmdb:566525,title:'Shang-Chi',year:2021,r:7.4},
+  {tt:'tt10872600',tmdb:634649,title:'Spider-Man: No Way Home',year:2021,r:8.2},
+  {tt:'tt10676048',tmdb:447365,title:'Guardians of the Galaxy Vol. 3',year:2023,r:7.9},
+];
+const HP_LIST=[
+  {tt:'tt0241527',tmdb:671,  title:"Harry Potter and the Philosopher's Stone",year:2001,r:7.9},
+  {tt:'tt0295297',tmdb:672,  title:'Harry Potter and the Chamber of Secrets',year:2002,r:7.4},
+  {tt:'tt0304141',tmdb:673,  title:'Harry Potter and the Prisoner of Azkaban',year:2004,r:7.9},
+  {tt:'tt0330373',tmdb:674,  title:'Harry Potter and the Goblet of Fire',year:2005,r:7.7},
+  {tt:'tt0373889',tmdb:675,  title:'Harry Potter and the Order of the Phoenix',year:2007,r:7.5},
+  {tt:'tt0417741',tmdb:767,  title:'Harry Potter and the Half-Blood Prince',year:2009,r:7.6},
+  {tt:'tt0926084',tmdb:12444,title:'Harry Potter and the Deathly Hallows Part 1',year:2010,r:7.7},
+  {tt:'tt1201607',tmdb:12445,title:'Harry Potter and the Deathly Hallows Part 2',year:2011,r:8.1},
+];
+const DC_LIST=[
+  {tt:'tt0468569', tmdb:155,   title:'The Dark Knight',year:2008,r:9.0},
+  {tt:'tt1345836', tmdb:49026, title:'The Dark Knight Rises',year:2012,r:8.4},
+  {tt:'tt0372784', tmdb:272,   title:'Batman Begins',year:2005,r:8.2},
+  {tt:'tt2975590', tmdb:209112,title:'Batman v Superman',year:2016,r:6.4},
+  {tt:'tt0770828', tmdb:49521, title:'Man of Steel',year:2013,r:7.1},
+  {tt:'tt7126948', tmdb:791373,title:"Zack Snyder Justice League",year:2021,r:8.1},
+  {tt:'tt7286456', tmdb:475557,title:'Joker',year:2019,r:8.4},
+  {tt:'tt10518312',tmdb:436270,title:'Black Adam',year:2022,r:6.3},
+  {tt:'tt2385557', tmdb:297762,title:'Aquaman',year:2018,r:6.9},
+  {tt:'tt2140479', tmdb:287947,title:'Shazam!',year:2019,r:7.0},
+];
+
+// MCU BY PHASE
+const MCU_P1=[
+  {tt:'tt0371746', tmdb:1726,  title:'Iron Man',year:2008,r:7.9},
+  {tt:'tt0800080', tmdb:1724,  title:'The Incredible Hulk',year:2008,r:6.6},
+  {tt:'tt1228705', tmdb:10138, title:'Iron Man 2',year:2010,r:7.0},
+  {tt:'tt0800369', tmdb:10195, title:'Thor',year:2011,r:7.0},
+  {tt:'tt1399103', tmdb:22970, title:'Captain America: The First Avenger',year:2011,r:6.9},
+  {tt:'tt0848228', tmdb:24428, title:'The Avengers',year:2012,r:8.0},
+];
+const MCU_P2=[
+  {tt:'tt1300854', tmdb:68721, title:'Iron Man 3',year:2013,r:7.1},
+  {tt:'tt1981115', tmdb:76338, title:'Thor: The Dark World',year:2013,r:6.8},
+  {tt:'tt1843866', tmdb:100402,title:'Captain America: The Winter Soldier',year:2014,r:7.7},
+  {tt:'tt2015381', tmdb:118340,title:'Guardians of the Galaxy',year:2014,r:8.0},
+  {tt:'tt2395427', tmdb:99861, title:'Avengers: Age of Ultron',year:2015,r:7.3},
+  {tt:'tt0478970', tmdb:102899,title:'Ant-Man',year:2015,r:7.3},
+];
+const MCU_P3=[
+  {tt:'tt3498820', tmdb:271110,title:'Captain America: Civil War',year:2016,r:7.8},
+  {tt:'tt3385516', tmdb:284052,title:'Doctor Strange',year:2016,r:7.5},
+  {tt:'tt3896198', tmdb:283995,title:'Guardians of the Galaxy Vol. 2',year:2017,r:7.6},
+  {tt:'tt2250912', tmdb:315635,title:'Spider-Man: Homecoming',year:2017,r:7.4},
+  {tt:'tt3501632', tmdb:284053,title:'Thor: Ragnarok',year:2017,r:7.9},
+  {tt:'tt1825683', tmdb:284054,title:'Black Panther',year:2018,r:7.3},
+  {tt:'tt4154756', tmdb:299536,title:'Avengers: Infinity War',year:2018,r:8.4},
+  {tt:'tt5095030', tmdb:363088,title:'Ant-Man and the Wasp',year:2018,r:7.1},
+  {tt:'tt4154664', tmdb:299537,title:'Captain Marvel',year:2019,r:6.9},
+  {tt:'tt4154796', tmdb:299534,title:'Avengers: Endgame',year:2019,r:8.4},
+  {tt:'tt6320628', tmdb:400160,title:'Spider-Man: Far from Home',year:2019,r:7.5},
+];
+const MCU_P4=[
+  {tt:'tt3480822', tmdb:497698,title:'Black Widow',year:2021,r:6.7},
+  {tt:'tt9376612', tmdb:566525,title:'Shang-Chi',year:2021,r:7.4},
+  {tt:'tt5104604', tmdb:524434,title:'Eternals',year:2021,r:6.3},
+  {tt:'tt10872600',tmdb:634649,title:'Spider-Man: No Way Home',year:2021,r:8.2},
+  {tt:'tt9419884', tmdb:616037,title:'Doctor Strange in the Multiverse of Madness',year:2022,r:6.9},
+  {tt:'tt8916452', tmdb:616649,title:'Thor: Love and Thunder',year:2022,r:6.2},
+  {tt:'tt9114286', tmdb:361743,title:'Black Panther: Wakanda Forever',year:2022,r:7.3},
+];
+const MCU_P5=[
+  {tt:'tt10954600',tmdb:640146,title:'Ant-Man and the Wasp: Quantumania',year:2023,r:6.0},
+  {tt:'tt10676048',tmdb:447365,title:'Guardians of the Galaxy Vol. 3',year:2023,r:7.9},
+  {tt:'tt11157302',tmdb:800369,title:'The Marvels',year:2023,r:5.9},
+  {tt:'tt6263850', tmdb:533535,title:'Deadpool and Wolverine',year:2024,r:7.7},
+  {tt:'tt1502397', tmdb:822119,title:'Captain America: Brave New World',year:2025,r:6.0},
+  {tt:'tt11680964',tmdb:986056,title:'Thunderbolts',year:2025,r:7.0},
+];
+
+// fetchDiscover — by decade or director
+async function fetchDiscover({decade, director}){
+  let url = '/discover/movie?sort_by=vote_average.desc&vote_count.gte=1000';
+  if(decade){
+    const yr = parseInt(decade);
+    const end = decade==='2020s' ? 2025 : yr+9;
+    url += `&primary_release_date.gte=${yr}-01-01&primary_release_date.lte=${end}-12-31`;
+  }
+  if(director) url += `&with_crew=${director}`;
+  const d = await tf(url);
+  return (d.results||[]).slice(0,20).map(item=>bldM(item,'',null));
+}
+
+// ─────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────
+let MCACHE={}, SRCH_T=null, CUR_PAGE='home';
+
+// ─────────────────────────────────────────
+//  TMDB
+// ─────────────────────────────────────────
+async function tf(path){
+  const sep=path.includes('?')?'&':'?';
+  const r=await fetch(`https://api.themoviedb.org/3${path}${sep}api_key=${TMDB_KEY}&language=en-US`);
+  if(!r.ok) throw new Error('TMDB '+r.status);
+  return r.json();
+}
+function bldM(d,imdb,rat){
+  return{imdb_id:d.imdb_id||imdb||'',tmdb_id:d.id,
+    title:d.title||d.name||'',year:(d.release_date||d.first_air_date||'').slice(0,4),
+    rating:rat!=null?String(rat):(d.vote_average?d.vote_average.toFixed(1):''),
+    genre:(d.genres||[]).map(g=>g.name).join(', '),overview:d.overview||'',
+    poster:d.poster_path?TMDB_IMG+d.poster_path:'',
+    backdrop:d.backdrop_path?TMDB_BG+d.backdrop_path:''};
+}
+async function fetchTop250(){
+  // Build instantly from static data — no API calls needed
+  // Poster images load lazily from TMDB via tmdb_id
+  return TOP250.map(([tt,tmdb,title,year,r])=>{
+    if(MCACHE[tmdb])return MCACHE[tmdb];
+    const o={imdb_id:tt,tmdb_id:tmdb,title,year:String(year),rating:String(r),
+      genre:'',overview:'',
+      poster:`https://image.tmdb.org/t/p/w500${tmdb}`,// will be fixed by TMDB
+      backdrop:''};
+    // Fetch poster path async without blocking
+    tf('/movie/'+tmdb).then(d=>{
+      if(d.poster_path)o.poster=TMDB_IMG+d.poster_path;
+      if(d.backdrop_path)o.backdrop=TMDB_BG+d.backdrop_path;
+      if(d.overview)o.overview=d.overview;
+      MCACHE[tmdb]=o;
+    }).catch(()=>{});
+    return o;
+  });
+}
+async function fetchColl(list){
+  return list.map(item=>{
+    if(MCACHE[item.tmdb])return MCACHE[item.tmdb];
+    const o={imdb_id:item.tt,tmdb_id:item.tmdb,title:item.title,
+      year:String(item.year),rating:String(item.r),genre:'',overview:'',poster:'',backdrop:''};
+    // Fetch details async
+    tf('/movie/'+item.tmdb).then(d=>{
+      if(d.poster_path)o.poster=TMDB_IMG+d.poster_path;
+      if(d.backdrop_path)o.backdrop=TMDB_BG+d.backdrop_path;
+      if(d.overview)o.overview=d.overview;
+      MCACHE[item.tmdb]=o;
+    }).catch(()=>{});
+    return o;
+  });
+}
+async function fetchTopSeries(){
+  return TOP10_SERIES.map(item=>{
+    const ck='tv_'+item.tmdb;
+    if(MCACHE[ck])return MCACHE[ck];
+    const o={imdb_id:item.tt,tmdb_id:item.tmdb,title:item.title,
+      year:String(item.year),rating:String(item.r),genre:'',overview:'',
+      poster:'',backdrop:'',_kind:'tv',num_seasons:1};
+    tf('/tv/'+item.tmdb).then(d=>{
+      if(d.poster_path)o.poster=TMDB_IMG+d.poster_path;
+      if(d.backdrop_path)o.backdrop=TMDB_BG+d.backdrop_path;
+      if(d.overview)o.overview=d.overview;
+      if(d.number_of_seasons)o.num_seasons=d.number_of_seasons;
+      MCACHE[ck]=o;
+    }).catch(()=>{});
+    return o;
+  });
+}
+const TV_BLOCKED=new Set([85552]); // Euphoria
+async function discover(type,genreId,page){
+  const g=genreId?'&with_genres='+genreId:'';
+  const d=await tf('/discover/'+type+'?page='+page+g+'&sort_by=popularity.desc&vote_count.gte=200');
+  return(d.results||[]).filter(item=>!TV_BLOCKED.has(item.id)).slice(0,20).map(item=>{
+    if(type==='tv')return{imdb_id:'',tmdb_id:item.id,title:item.name||item.title,
+      year:(item.first_air_date||'').slice(0,4),rating:item.vote_average?item.vote_average.toFixed(1):'',
+      genre:'',overview:item.overview||'',
+      poster:item.poster_path?TMDB_IMG+item.poster_path:'',
+      backdrop:item.backdrop_path?TMDB_BG+item.backdrop_path:'',_kind:'tv'};
+    return bldM(item,'',null);
+  });
+}
+async function discoverAr(type){
+  const d=await tf('/discover/'+type+'?page=1&sort_by=popularity.desc&vote_count.gte=50&with_original_language=ar&region=EG,SA,AE,MA');
+  const cat=await loadVidCatalog();
+  return(d.results||[]).filter(item=>!cat.size||cat.has(String(item.id))).slice(0,20).map(item=>{
+    if(type==='tv')return{imdb_id:'',tmdb_id:item.id,title:item.name||item.title,
+      year:(item.first_air_date||'').slice(0,4),rating:item.vote_average?item.vote_average.toFixed(1):'',
+      genre:'',overview:item.overview||'',
+      poster:item.poster_path?TMDB_IMG+item.poster_path:'',
+      backdrop:item.backdrop_path?TMDB_BG+item.backdrop_path:'',_kind:'tv'};
+    return bldM(item,'',null);
+  });
+}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+// ─────────────────────────────────────────
+//  ICONS
+// ─────────────────────────────────────────
+const iSearch=(s,c='currentColor')=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`;
+const iX=s=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
+const iPlay=(s,f='currentColor')=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${f}"><polygon points="5,3 19,12 5,21"/></svg>`;
+const iChL=s=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>`;
+const iChR=s=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>`;
+const iHome=s=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>`;
+const iFilm=s=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="2" y1="17" x2="7" y2="17"/></svg>`;
+const iTV=s=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="15" rx="2"/><polyline points="8,21 12,17 16,21"/></svg>`;
+const iStar=s=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="#c9a84c"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>`;
+const iCal=s=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+
+// ─────────────────────────────────────────
+//  HEADER
+// ─────────────────────────────────────────
+let _hdrFn=null;
+function mountHdr(el,solid=false){
+  if(_hdrFn)window.removeEventListener('scroll',_hdrFn);
+  _hdrFn=()=>{
+    const s=solid||window.scrollY>30;
+    el.style.background=s?'rgba(8,8,8,.98)':'linear-gradient(to bottom,rgba(8,8,8,.95),transparent)';
+    el.style.backdropFilter=s?'blur(12px)':'none';
+    el.style.borderBottom=s?'1px solid rgba(255,255,255,.05)':'none';
+  };
+  window.addEventListener('scroll',_hdrFn,{passive:true});
+  _hdrFn();
+}
+function headerHTML(active='home'){
+  const pages=[{id:'home',l:'الرئيسية'},{id:'movies',l:'أفلام'},{id:'tv',l:'مسلسلات'}];
+  return`
+<header id="main_hdr" style="position:fixed;top:0;left:0;right:0;z-index:100;padding:0 28px;height:64px;
+  display:flex;align-items:center;justify-content:space-between;transition:background .3s,border-color .3s;" dir="rtl">
+  <button onclick="gotoPage('home')" style="background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:0;flex-shrink:0;">
+    <div style="width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#c9a84c,#8a6a20);
+      display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(201,168,76,.3);">${iPlay(16,'#000')}</div>
+    <span style="font-family:'Cairo',sans-serif;font-weight:900;font-size:1.05rem;letter-spacing:.04em;
+      background:linear-gradient(90deg,#c9a84c,#f0d98a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">CINEMA ELDON</span>
+  </button>
+  <div class="hide-scrollbar" style="display:flex;gap:4px;overflow-x:auto;">
+    ${pages.map(p=>`<button onclick="gotoPage('${p.id}')"
+      style="background:${active===p.id?'rgba(201,168,76,.12)':'none'};
+        border:${active===p.id?'1px solid rgba(201,168,76,.25)':'1px solid transparent'};
+        border-radius:8px;color:${active===p.id?ACCENT:'#888'};cursor:pointer;
+        font-family:'Cairo',sans-serif;font-size:.85rem;padding:7px 14px;transition:all .2s;white-space:nowrap;"
+      onmouseenter="if('${p.id}'!=='${active}')this.style.color='#f0f0f0'"
+      onmouseleave="if('${p.id}'!=='${active}')this.style.color='#888'">${p.l}</button>`).join('')}
+  </div>
+  <button onclick="openSearch()"
+    style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:8px;
+      color:#888;padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;
+      font-family:'Cairo',sans-serif;transition:all .2s;flex-shrink:0;"
+    onmouseenter="this.style.borderColor='rgba(201,168,76,.3)';this.style.color='#f0f0f0'"
+    onmouseleave="this.style.borderColor='rgba(255,255,255,.08)';this.style.color='#888'">
+    ${iSearch(15,'currentColor')}<span style="font-size:.84rem;">بحث</span>
+  </button>
+</header>
+<div id="srch_bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:101;
+  padding:12px 28px;background:rgba(8,8,8,.98);backdrop-filter:blur(14px);
+  border-bottom:1px solid rgba(255,255,255,.06);" dir="rtl">
+  <div style="display:flex;align-items:center;gap:10px;max-width:720px;margin:0 auto;">
+    ${iSearch(18,'#666')}
+    <input id="srch_inp" placeholder="ابحث في قاعدة بيانات IMDB الكاملة…" oninput="onSrch(this.value)"
+      style="flex:1;background:transparent;border:none;color:#f0f0f0;font-family:'Cairo',sans-serif;
+        font-size:1rem;outline:none;" dir="rtl" autocomplete="off"/>
+    <button onclick="closeSearch()" style="background:none;border:none;color:#555;cursor:pointer;padding:4px;display:flex;">${iX(20)}</button>
+  </div>
+</div>`;
+}
+
+// ─────────────────────────────────────────
+//  SEARCH
+// ─────────────────────────────────────────
+window.openSearch=()=>{
+  document.getElementById('srch_bar').style.display='block';
+  document.getElementById('srch_res').style.display='block';
+  setTimeout(()=>document.getElementById('srch_inp')?.focus(),50);
+};
+window.closeSearch=()=>{
+  document.getElementById('srch_bar').style.display='none';
+  document.getElementById('srch_res').style.display='none';
+  const inp=document.getElementById('srch_inp');
+  if(inp)inp.value='';
+};
+window.onSrch=(q)=>{
+  clearTimeout(SRCH_T);
+  const res=document.getElementById('srch_res');
+  if(!res)return;
+  if(!q||q.trim().length<2){res.style.display='none';return;}
+  res.style.display='block';
+  res.innerHTML=`<div style="padding:100px 28px;text-align:center;color:#333;font-family:'Cairo',sans-serif;">جاري البحث…</div>`;
+  SRCH_T=setTimeout(()=>doSearch(q.trim()),420);
+};
+async function doSearch(q){
+  const res=document.getElementById('srch_res');
+  if(!res)return;
+  try{
+    const[mR,tvR]=await Promise.all([
+      tf('/search/movie?query='+encodeURIComponent(q)+'&page=1'),
+      tf('/search/tv?query='+encodeURIComponent(q)+'&page=1'),
+    ]);
+    const movies=(mR.results||[]).slice(0,14).map(d=>({...bldM(d,'',null),_kind:'movie',_pop:d.popularity||0}));
+    const shows=(tvR.results||[]).slice(0,8).map(d=>({
+      imdb_id:'',tmdb_id:d.id,title:d.name||d.title,year:(d.first_air_date||'').slice(0,4),
+      rating:d.vote_average?d.vote_average.toFixed(1):'',genre:'',overview:d.overview||'',
+      poster:d.poster_path?TMDB_IMG+d.poster_path:'',
+      backdrop:d.backdrop_path?TMDB_BG+d.backdrop_path:'',_kind:'tv',_pop:d.popularity||0}));
+    const BLOCKED_IDS=new Set([85552]);
+    const all=[...movies,...shows]
+      .filter(m=>!BLOCKED_IDS.has(m.tmdb_id))
+      .sort((a,b)=>(b._pop||0)-(a._pop||0));
+    if(!document.getElementById('srch_res'))return;
+    document.getElementById('srch_res').innerHTML=`
+      <div style="padding:88px 28px 40px;" dir="rtl">
+        <h2 style="color:#f0f0f0;margin:0 0 4px;font-family:'Cairo',sans-serif;">${q}</h2>
+        <p style="color:#444;font-size:.82rem;margin:0 0 26px;">${all.length} نتيجة</p>
+        ${all.length===0?`<div style="text-align:center;padding:60px;color:#333;">لا توجد نتائج</div>`
+          :`<div class="search-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:16px;">
+              ${all.map(m=>cardHTML(m,{badge:m._kind==='tv'?'TV':'',badgeColor:'#1d4ed8'})).join('')}
+            </div>`}
+      </div>`;
+    attachHovers();
+  }catch(e){
+    console.error(e);
+    if(document.getElementById('srch_res'))
+      document.getElementById('srch_res').innerHTML=`<div style="padding:100px 28px;text-align:center;color:#444;">تعذر البحث</div>`;
+  }
+}
+
+// ─────────────────────────────────────────
+//  CARD  — uses registry key only in onclick
+// ─────────────────────────────────────────
+function cardHTML(m,opts={}){
+  const{rank,badge,badgeColor}=opts;
+  const k=regM(m);
+  return`
+<div onclick="showDetails('${k}')" class="ep-card"
+  style="background:#111;border-radius:10px;overflow:hidden;cursor:pointer;
+    transition:transform .25s,box-shadow .25s;box-shadow:0 4px 12px rgba(0,0,0,.4);">
+  <div style="position:relative;aspect-ratio:2/3;overflow:hidden;background:#0d0d0d;">
+    ${m.poster?`<img src="${m.poster}" alt="" loading="lazy"
+        onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+        style="width:100%;height:100%;object-fit:cover;transition:transform .4s;display:block;"/>`:''}
+    <div style="${m.poster?'display:none;':'display:flex;'}width:100%;height:100%;
+      background:linear-gradient(135deg,#1a1200,#0a0800);align-items:center;justify-content:center;">
+      <div style="width:44px;height:44px;border-radius:50%;background:rgba(201,168,76,.15);
+        display:flex;align-items:center;justify-content:center;">${iPlay(20,ACCENT)}</div>
+    </div>
+    <div class="ep-ov" style="position:absolute;inset:0;background:rgba(0,0,0,.06);
+      transition:background .2s;display:flex;align-items:center;justify-content:center;">
+      <div class="ep-pl" onclick="event.stopPropagation();playK('${k}')"
+        style="display:none;width:50px;height:50px;border-radius:50%;background:rgba(201,168,76,.9);
+          align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(201,168,76,.4);">${iPlay(22,'#000')}</div>
+    </div>
+    ${rank?`<div style="position:absolute;top:8px;right:8px;background:rgba(201,168,76,.92);
+      color:#000;font-size:.7rem;font-weight:700;border-radius:5px;padding:2px 8px;font-family:'Cairo',sans-serif;">#${rank}</div>`:''}
+    ${badge?`<div style="position:absolute;top:8px;left:8px;background:${badgeColor||ACCENT}cc;
+      color:#fff;font-size:.68rem;font-weight:700;border-radius:5px;padding:2px 8px;
+      font-family:'Cairo',sans-serif;backdrop-filter:blur(4px);">${badge}</div>`:''}
+    ${m.rating?`<div style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.82);
+      border-radius:4px;padding:2px 7px;font-size:.68rem;color:#c9a84c;
+      font-family:'Cairo',sans-serif;display:flex;align-items:center;gap:3px;">
+      ${iStar(11)} ${parseFloat(m.rating||0).toFixed(1)}</div>`:''}
+    ${m.year?`<div style="position:absolute;bottom:8px;left:8px;background:rgba(0,0,0,.72);
+      border-radius:4px;padding:2px 6px;font-size:.66rem;color:rgba(255,255,255,.6);
+      font-family:'Cairo',sans-serif;">${m.year}</div>`:''}
+  </div>
+  <div style="padding:10px 12px 12px;">
+    <h3 style="color:#e8e8e8;margin:0;overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;
+      -webkit-box-orient:vertical;font-size:.88rem;font-family:'Cairo',sans-serif;font-weight:600;">${m.title||'—'}</h3>
+  </div>
+</div>`;
+}
+
+window.playK=function(k){const m=getM(k);if(m)playM(m);};
+
+// ─────────────────────────────────────────
+//  DETAILS MODAL
+// ─────────────────────────────────────────
+window.playK=function(k){const m=getM(k);if(m)playM(m);};
+
+// ─────────────────────────────────────────
+//  DETAILS MODAL
+// ─────────────────────────────────────────
+window.showDetails=async function(k){
+  const m=getM(k);if(!m)return;
+  const detK=k;
+  renderDet(m,null,detK);
+  document.getElementById('details_modal').classList.add('open');
+  document.body.style.overflow='hidden';
+  if(!history.state||history.state.modal!=='details')history.pushState({modal:'details'},'');
+  try{
+    const isTV=m._kind==='tv';
+    const[det,cred]=await Promise.all([
+      m.tmdb_id?tf('/'+(isTV?'tv':'movie')+'/'+m.tmdb_id):Promise.resolve(null),
+      m.tmdb_id?tf('/'+(isTV?'tv':'movie')+'/'+m.tmdb_id+'/credits'):Promise.resolve(null),
+    ]);
+    if(det){
+      if(!m.overview&&det.overview)m.overview=det.overview;
+      if(!m.genre&&det.genres)m.genre=det.genres.map(g=>g.name).join(', ');
+      if(!m.backdrop&&det.backdrop_path)m.backdrop=TMDB_BG+det.backdrop_path;
+      if(!m.poster&&det.poster_path)m.poster=TMDB_IMG+det.poster_path;
+      if(det.imdb_id&&!m.imdb_id)m.imdb_id=det.imdb_id;
+      if(det.number_of_seasons)m.num_seasons=det.number_of_seasons;
+      if(det.seasons){
+        window.__TVS[m.tmdb_id]=det.seasons.filter(s=>s.season_number>0)
+          .map(s=>({n:s.season_number,count:s.episode_count}));
+      }
+      if(!isTV&&det.belongs_to_collection)m._coll=det.belongs_to_collection;
+    }
+    const cast=(cred?.cast||[]).slice(0,14);
+    if(document.getElementById('details_modal').classList.contains('open'))
+      renderDet(m,cast,detK);
+    if(!isTV&&m._coll)loadCollection(m,detK);
+  }catch(e){console.error('det fetch',e);}
+};
+
+function renderDet(m,cast,k){
+  if(!k)k=regM(m);
+  const box=document.getElementById('det_box');
+  if(!box)return;
+  const isTV=m._kind==='tv';
+  const genres=m.genre?m.genre.split(',').slice(0,4):[];
+  box.innerHTML=`
+  <button class="det-close" onclick="closeDet()">✕</button>
+  <div id="det_player_wrap" style="display:none;width:100%;background:#000;position:relative;aspect-ratio:16/9;flex-shrink:0;">
+    <iframe id="det_player_iframe" allowfullscreen allow="autoplay;fullscreen"
+      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-fullscreen allow-presentation"
+      style="position:absolute;inset:0;width:100%;height:100%;border:none;"></iframe>
+  </div>
+  <div class="det-back-wrap">
+    ${(m.backdrop||m.poster)?`<img src="${m.backdrop||m.poster}" alt="" loading="lazy" onerror="this.style.display='none'">`
+      :`<div style="width:100%;height:100%;background:linear-gradient(135deg,#1a1200,#0a0800);"></div>`}
+    <div class="det-back-grad"></div>
+    <div style="position:absolute;bottom:12px;right:22px;z-index:2;">
+      <span style="background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.3);
+        color:#c9a84c;font-size:.72rem;padding:3px 10px;border-radius:5px;font-family:'Cairo',sans-serif;">
+        ${isTV?'مسلسل':'فيلم'}</span>
+    </div>
+  </div>
+  <div class="det-body" dir="rtl">
+    <div class="det-poster">
+      ${m.poster?`<img src="${m.poster}" alt="" onerror="this.outerHTML='<div class=det-poster-ph>${iPlay(28,ACCENT)}</div>'">`
+        :`<div class="det-poster-ph">${iPlay(28,ACCENT)}</div>`}
+    </div>
+    <div class="det-info">
+      <h2 class="det-title">${m.title||''}</h2>
+      <div class="det-meta-row">
+        ${m.rating?`<span class="det-rating">${iStar(14)} ${parseFloat(m.rating).toFixed(1)}</span>`:''}
+        ${m.year?`<span class="det-year">${iCal(13)} ${m.year}</span>`:''}
+        ${genres.map(g=>`<span class="det-pill">${g.trim()}</span>`).join('')}
+      </div>
+      <p class="det-overview">${m.overview||'<span style="color:#333;">لا يوجد وصف متاح</span>'}</p>
+      <button class="det-btn" onclick="playInDet('${k}')">
+        ${iPlay(18,'#000')} شاهد الآن
+      </button>
+    </div>
+  </div>
+  ${isTV?seasonPickerHTML(m,k):''}
+  <div id="coll_${k}"></div>
+  <div class="det-cast" dir="rtl">
+    <div class="det-lbl" style="margin-bottom:14px;">طاقم العمل</div>
+    <div class="cast-row">
+      ${cast===null
+        ?Array(8).fill(0).map(()=>`<div class="cast-card"><div class="cast-ph sk" style="width:52px;height:52px;border-radius:50%;margin:0 auto 6px;"></div><div class="sk" style="height:8px;border-radius:4px;width:90%;margin:0 auto 4px;"></div></div>`).join('')
+        :cast.length===0?`<p style="color:#333;font-size:.82rem;font-family:'Cairo',sans-serif;">لا تتوفر بيانات</p>`
+        :cast.map(c=>{
+          const ph=c.profile_path?'https://image.tmdb.org/t/p/w185'+c.profile_path:'';
+          return`<div class="cast-card">${ph?`<img src="${ph}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="cast-ph">${iPlay(14,ACCENT)}</div>`}<p>${c.name||''}</p><p class="cast-char">${(c.character||'').slice(0,18)}</p></div>`;
+        }).join('')}
+    </div>
+  </div>`;
+  if(isTV&&m.tmdb_id)loadEps(m,k,1);
+}
+
+function seasonPickerHTML(m,k){
+  const seas=window.__TVS[m.tmdb_id]||[];
+  if(!seas.length&&m.num_seasons){
+    for(let i=1;i<=m.num_seasons;i++)seas.push({n:i,count:0});
+  }
+  return`
+  <div class="det-seasons" dir="rtl">
+    <div class="det-lbl">مواسم وحلقات</div>
+    <div class="season-pills" id="sp_${k}">
+      ${seas.map(s=>`<button class="season-pill${s.n===1?' active':''}"
+        onclick="loadEps(window.__MV['${k}'],'${k}',${s.n},this)">
+        الموسم ${s.n}</button>`).join('')
+      ||`<span style="color:#333;font-size:.8rem;">جاري التحميل…</span>`}
+    </div>
+  </div>
+  <div class="det-episodes" id="ep_${k}" dir="rtl">
+    <div class="ep-grid">${Array(4).fill(0).map(()=>`
+      <div style="flex-shrink:0;width:200px;border-radius:8px;overflow:hidden;background:#1a1a1a;">
+        <div class="sk" style="width:100%;aspect-ratio:16/9;"></div>
+        <div style="padding:8px 10px;"><div class="sk" style="height:9px;border-radius:4px;width:65%;margin-bottom:5px;"></div><div class="sk" style="height:8px;border-radius:4px;width:85%;"></div></div>
+      </div>`).join('')}</div>
+  </div>`;
+}
+
+window.loadEps=async function(m,k,sn,pillEl){
+  if(!m||!m.tmdb_id)return;
+  const epDiv=document.getElementById('ep_'+k);
+  if(!epDiv)return;
+  if(pillEl){
+    document.getElementById('sp_'+k)?.querySelectorAll('.season-pill').forEach(p=>p.classList.remove('active'));
+    pillEl.classList.add('active');
+  }
+  const ck=`${m.tmdb_id}_s${sn}`;
+  let eps=window.__EPS[ck];
+  if(!eps){
+    epDiv.innerHTML=`<div class="ep-grid">${Array(4).fill(0).map(()=>`<div style="flex-shrink:0;width:200px;border-radius:8px;overflow:hidden;background:#1a1a1a;"><div class="sk" style="width:100%;aspect-ratio:16/9;"></div><div style="padding:8px 10px;"><div class="sk" style="height:9px;border-radius:4px;width:65%;margin-bottom:5px;"></div><div class="sk" style="height:8px;border-radius:4px;width:85%;"></div></div></div>`).join('')}</div>`;
+    try{
+      const d=await tf('/tv/'+m.tmdb_id+'/season/'+sn);
+      eps=(d.episodes||[]).filter(e=>e.episode_number>0);
+      window.__EPS[ck]=eps;
+    }catch{
+      if(document.getElementById('ep_'+k))
+        document.getElementById('ep_'+k).innerHTML=`<p style="color:#333;font-size:.82rem;font-family:'Cairo',sans-serif;padding:4px 0;">تعذر تحميل الحلقات</p>`;
+      return;
+    }
+  }
+  const cont=document.getElementById('ep_'+k);
+  if(!cont)return;
+  cont.innerHTML=`<div class="ep-grid">
+    ${eps.map(ep=>{
+      const thumb=ep.still_path?TMDB_STILL+ep.still_path:'';
+      return`<div class="ep-item" onclick="closeDet();playEp('${k}',${sn},${ep.episode_number})">
+        <div class="ep-thumb">
+          ${thumb?`<img src="${thumb}" alt="" loading="lazy" onerror="this.style.display='none'">`:`<div class="ep-thumb-ph">${iPlay(20,ACCENT)}</div>`}
+          <div class="ep-play-over"><div class="ep-play-c">${iPlay(14,'#000')}</div></div>
+        </div>
+        <div class="ep-info">
+          <div class="ep-num">الحلقة ${ep.episode_number}${ep.runtime?' · '+ep.runtime+' د':''}</div>
+          <div class="ep-name">${ep.name||'حلقة '+ep.episode_number}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+};
+
+async function loadCollection(m,k){
+  try{
+    const d=await tf('/collection/'+m._coll.id);
+    const parts=(d.parts||[]).filter(p=>p.release_date).sort((a,b)=>a.release_date.localeCompare(b.release_date));
+    if(parts.length<2)return;
+    const slot=document.getElementById('coll_'+k);
+    if(!slot)return;
+    slot.innerHTML='<div style="padding:0 26px 16px;border-top:1px solid rgba(255,255,255,.05);" dir="rtl">'
+      +'<div class="det-lbl" style="margin:16px 0 12px;">'+(m._coll.name||'أجزاء السلسلة')+'</div>'
+      +'<div class="ep-grid">'
+      +parts.map((p,i)=>{
+        const pm={imdb_id:'',tmdb_id:p.id,title:p.title||'',year:(p.release_date||'').slice(0,4),
+          rating:p.vote_average?p.vote_average.toFixed(1):'',genre:'',overview:'',
+          poster:p.poster_path?TMDB_IMG+p.poster_path:'',
+          backdrop:p.backdrop_path?TMDB_BG+p.backdrop_path:'',_kind:'movie'};
+        const pk=regM(pm);
+        const cur=p.id===m.tmdb_id;
+        return'<div data-ck="'+pk+'" onclick="closeDet();showDetails(this.dataset.ck)" '
+          +'style="flex-shrink:0;width:110px;cursor:pointer;border-radius:8px;overflow:hidden;'
+          +'background:'+(cur?'rgba(201,168,76,.1)':'#1a1a1a')+';'
+          +'border:1px solid '+(cur?'rgba(201,168,76,.45)':'transparent')+';transition:transform .2s;">'
+          +'<div style="position:relative;aspect-ratio:2/3;overflow:hidden;background:#0d0d0d;">'
+          +(pm.poster?'<img src="'+pm.poster+'" style="width:100%;height:100%;object-fit:cover;" loading="lazy">':'')
+          +'<div style="position:absolute;top:5px;right:5px;background:rgba(0,0,0,.8);border-radius:3px;padding:1px 5px;font-size:.58rem;color:#aaa;font-family:Cairo,sans-serif;">'+(i+1)+'</div>'
+          +(cur?'<div style="position:absolute;bottom:0;left:0;right:0;background:rgba(201,168,76,.85);text-align:center;font-size:.58rem;font-family:Cairo,sans-serif;color:#000;padding:2px;font-weight:700;">شاهد الآن</div>':'')
+          +'</div>'
+          +'<div style="padding:5px 7px 7px;">'
+          +'<div style="font-size:.7rem;color:'+(cur?'#c9a84c':'#ccc')+';font-weight:600;font-family:Cairo,sans-serif;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">'+pm.title+'</div>'
+          +(pm.year?'<div style="font-size:.6rem;color:#444;margin-top:1px;font-family:Cairo,sans-serif;">'+pm.year+'</div>':'')
+          +'</div></div>';
+      }).join('')
+      +'</div></div>';
+  }catch(e){console.error('coll',e);}
+}
+window.playInDet=function(k){
+  const m=getM(k);if(!m)return;
+  const isTV=m._kind==='tv';
+  const imdb=m.imdb_id,tmdb=m.tmdb_id;
+  let src=isTV
+    ?(tmdb?`${PLAYER}/tv/${tmdb}/1/1`:`${PLAYER}/tv?imdb=${imdb}&season=1&episode=1`)
+    :(tmdb?`${PLAYER}/movie/${tmdb}`:(imdb?`${PLAYER}/movie?imdb=${imdb}`:''));
+  const wrap=document.getElementById('det_player_wrap');
+  const iframe=document.getElementById('det_player_iframe');
+  if(!wrap||!iframe)return;
+  iframe.src=src;
+  wrap.style.display='block';
+  // Hide backdrop image, scroll to top
+  document.getElementById('details_modal').scrollTo({top:0,behavior:'smooth'});
+  // Fullscreen landscape
+  try{
+    const el=iframe;
+    const req=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
+    if(req){
+      req.call(el).then(()=>{
+        if(screen.orientation&&screen.orientation.lock)
+          screen.orientation.lock('landscape').catch(()=>{});
+      }).catch(()=>{});
+    }
+  }catch(e){}
+};
+window.closeDet=function(){
+  document.getElementById('details_modal').classList.remove('open');
+  document.body.style.overflow='';
+  const iframe=document.getElementById('det_player_iframe');
+  if(iframe)iframe.src='';
+  const wrap=document.getElementById('det_player_wrap');
+  if(wrap)wrap.style.display='none';
+};
+document.getElementById('details_modal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('details_modal'))closeDet();
+});
+
+// ─────────────────────────────────────────
+//  PLAY
+// ─────────────────────────────────────────
+window.playM=function(m){
+  const imdb=m.imdb_id,tmdb=m.tmdb_id,isTV=m._kind==='tv';
+  let src=isTV
+    ?(tmdb?`${PLAYER}/tv/${tmdb}/1/1`:`${PLAYER}/tv?imdb=${imdb}&season=1&episode=1`)
+    :(tmdb?`${PLAYER}/movie/${tmdb}`:(imdb?`${PLAYER}/movie?imdb=${imdb}`:''));
+  const key=imdb||String(tmdb);
+  const saved=key?localStorage.getItem('ce_'+key):null;
+  if(saved&&parseFloat(saved)>30)src+=(src.includes('?')?'&':'?')+'resumeAt='+saved;
+  document.getElementById('player_iframe').src=src;
+  document.getElementById('modal_title').textContent=m.title||'';
+  document.getElementById('modal_meta').innerHTML=metaHTML(m);
+  document.getElementById('modal').classList.add('open');
+  document.body.style.overflow='hidden';
+  if(isTV)setupTVNav(m,1,1);
+  else{document.getElementById('tv_nav').style.display='none';window.__CTV=null;}
+  if(key)window._tid=key;
+  showToast('جاري تحميل المشغل…');
+};
+
+window.playEp=function(k,season,episode){
+  const m=getM(k);if(!m)return;
+  const src=`${PLAYER}/tv/${m.tmdb_id}/${season}/${episode}`;
+  document.getElementById('player_iframe').src=src;
+  document.getElementById('modal_title').textContent=`${m.title||''} — الموسم ${season}`;
+  document.getElementById('modal_meta').innerHTML=metaHTML(m);
+  document.getElementById('modal').classList.add('open');
+  document.body.style.overflow='hidden';
+  setupTVNav(m,season,episode);
+  showToast(`الموسم ${season} · الحلقة ${episode}`);
+};
+
+function metaHTML(m){
+  const a=[];
+  if(m.year)a.push(`<span style="display:flex;align-items:center;gap:4px;color:#555;">${iCal(12)} ${m.year}</span>`);
+  if(m.rating)a.push(`<span class="modal-rating" style="display:flex;align-items:center;gap:4px;">${iStar(13)} ${parseFloat(m.rating).toFixed(1)}</span>`);
+  if(m.genre)m.genre.split(',').slice(0,3).forEach(g=>a.push(`<span class="modal-gpill">${g.trim()}</span>`));
+  return a.join('');
+}
+
+async function setupTVNav(m,season,episode){
+  window.__CTV={m,season,episode,totalSeasons:m.num_seasons||1,epsInSeason:{}};
+  document.getElementById('tv_nav').style.display='flex';
+  updateTVLbl();updateTVBtns();
+  [season,season+1].forEach(async s=>{
+    if(s<1)return;
+    const ck=`${m.tmdb_id}_s${s}`;
+    if(window.__EPS[ck]){if(window.__CTV)window.__CTV.epsInSeason[s]=window.__EPS[ck].length;updateTVBtns();return;}
+    try{const d=await tf('/tv/'+m.tmdb_id+'/season/'+s);
+      const eps=(d.episodes||[]).filter(e=>e.episode_number>0);
+      window.__EPS[ck]=eps;if(window.__CTV)window.__CTV.epsInSeason[s]=eps.length;updateTVBtns();}
+    catch{}
+  });
+}
+function updateTVLbl(){
+  if(!window.__CTV)return;
+  const el=document.getElementById('tv_ep_label');
+  if(el)el.textContent=`الموسم ${window.__CTV.season} · الحلقة ${window.__CTV.episode}`;
+}
+function updateTVBtns(){
+  if(!window.__CTV)return;
+  const{season,episode,totalSeasons,epsInSeason}=window.__CTV;
+  const pb=document.getElementById('tv_prev_btn'),nb=document.getElementById('tv_next_btn');
+  if(!pb||!nb)return;
+  const epsHere=epsInSeason[season];
+  pb.disabled=!(episode>1||season>1);
+  nb.disabled=epsHere?(!(episode<epsHere||season<totalSeasons)):(season>=totalSeasons);
+}
+window.navigateEpisode=async function(dir){
+  if(!window.__CTV)return;
+  let{m,season,episode,totalSeasons,epsInSeason}=window.__CTV;
+  const ck=`${m.tmdb_id}_s${season}`;
+  let epsHere=epsInSeason[season];
+  if(!epsHere){
+    try{const d=await tf('/tv/'+m.tmdb_id+'/season/'+season);
+      const eps=(d.episodes||[]).filter(e=>e.episode_number>0);
+      window.__EPS[ck]=eps;epsHere=eps.length;window.__CTV.epsInSeason[season]=epsHere;}
+    catch{epsHere=episode+1;}
+  }
+  if(dir===1){
+    if(episode<epsHere)episode++;
+    else if(season<totalSeasons){season++;episode=1;}else return;
+  }else{
+    if(episode>1)episode--;
+    else if(season>1){
+      season--;
+      const pck=`${m.tmdb_id}_s${season}`;
+      let prev=epsInSeason[season];
+      if(!prev){try{const d=await tf('/tv/'+m.tmdb_id+'/season/'+season);
+        const eps=(d.episodes||[]).filter(e=>e.episode_number>0);
+        window.__EPS[pck]=eps;prev=eps.length;window.__CTV.epsInSeason[season]=prev;}catch{prev=1;}}
+      episode=prev;
+    }else return;
+  }
+  window.__CTV.season=season;window.__CTV.episode=episode;
+  document.getElementById('player_iframe').src=`${PLAYER}/tv/${m.tmdb_id}/${season}/${episode}`;
+  document.getElementById('modal_title').textContent=`${m.title||''} — الموسم ${season}`;
+  updateTVLbl();updateTVBtns();
+  showToast(`الموسم ${season} · الحلقة ${episode}`);
+};
+
+
+
+window.addEventListener('message',e=>{
+  if(!e.data||e.data.type!=='PLAYER_EVENT')return;
+  const{player_info,player_status,player_progress}=e.data.data;
+  const id=(player_info&&(player_info.imdb||player_info.tmdb))||window._tid;
+  if(id&&player_status==='playing'&&player_progress>10)
+    localStorage.setItem('ce_'+id,Math.floor(player_progress));
+});
+
+function closeModal(){
+  document.getElementById('modal').classList.remove('open');
+  document.getElementById('player_iframe').src='';
+  document.body.style.overflow='';
+  window.__CTV=null;
+  document.getElementById('tv_nav').style.display='none';
+}
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDet();}});
+
+// ─────────────────────────────────────────
+//  PLAYER OVERLAY  (pointer-events:none)
+//  Uses window.blur to detect iframe clicks
+// ─────────────────────────────────────────
+(function(){
+  const wrap=document.getElementById('player_wrap');
+  const flash=document.getElementById('ply_flash');
+  const skipL=document.getElementById('ply_skip_L');
+  const skipR=document.getElementById('ply_skip_R');
+  let mouseX=0,lastBlur=0;
+
+  function fire(el){el.classList.remove('fire');void el.offsetWidth;el.classList.add('fire');
+    setTimeout(()=>el.classList.remove('fire'),750);}
+
+  wrap.addEventListener('mousemove',e=>{
+    const r=wrap.getBoundingClientRect();mouseX=e.clientX-r.left;
+  });
+
+  window.addEventListener('blur',()=>{
+    if(!document.getElementById('modal').classList.contains('open'))return;
+    setTimeout(()=>{
+      if(document.activeElement!==document.getElementById('player_iframe'))return;
+      const now=Date.now(),w=wrap.offsetWidth||1;
+      if(now-lastBlur<380){
+        if(mouseX<w/2)fire(skipL);else fire(skipR);lastBlur=0;
+      }else{fire(flash);lastBlur=now;}
+    },30);
+  });
+})();
+
+// ─────────────────────────────────────────
+//  ROWS & SKELETON
+// ─────────────────────────────────────────
+function skRow(n=8){
+  return Array(n).fill(0).map(()=>`
+    <div style="flex:0 0 170px;min-width:0;"><div style="border-radius:10px;overflow:hidden;background:#111;">
+      <div class="sk" style="width:100%;aspect-ratio:2/3;"></div>
+      <div style="padding:10px 12px 12px;">
+        <div class="sk" style="height:12px;border-radius:5px;width:80%;margin-bottom:6px;"></div>
+        <div class="sk" style="height:10px;border-radius:5px;width:45%;"></div>
+      </div>
+    </div></div>`).join('');
+}
+function rowHTML({id,title,color}){
+  return`
+<section style="margin-bottom:48px;">
+  <div style="display:flex;align-items:center;padding:0 28px;margin-bottom:16px;" dir="rtl">
+    <div style="width:4px;height:22px;border-radius:2px;background:linear-gradient(to bottom,${color},${color}66);margin-left:12px;"></div>
+    <h2 style="color:#f0f0f0;margin:0;font-family:'Cairo',sans-serif;">${title}</h2>
+  </div>
+  <div style="position:relative;">
+    <button onclick="scrollRow('${id}',-1)"
+      style="position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:10;
+        background:linear-gradient(to right,rgba(8,8,8,.95),transparent);
+        border:none;color:white;cursor:pointer;height:100%;width:60px;
+        display:flex;align-items:center;padding-left:8px;">${iChR(24)}</button>
+    <div id="${id}" class="hide-scrollbar" style="display:flex;gap:12px;overflow-x:auto;padding:4px 28px 8px;">${skRow(8)}</div>
+    <button onclick="scrollRow('${id}',1)"
+      style="position:absolute;right:0;top:50%;transform:translateY(-50%);z-index:10;
+        background:linear-gradient(to left,rgba(8,8,8,.95),transparent);
+        border:none;color:white;cursor:pointer;height:100%;width:60px;
+        display:flex;align-items:center;justify-content:flex-end;padding-right:8px;">${iChL(24)}</button>
+  </div>
+</section>`;
+}
+window.scrollRow=(id,dir)=>{const el=document.getElementById(id);if(el)el.scrollBy({left:dir*el.clientWidth*.75,behavior:'smooth'});};
+function fillRow(id,movies,ranked){
+  const el=document.getElementById(id);if(!el)return;
+  el.innerHTML=movies.map((m,i)=>`<div style="flex:0 0 170px;min-width:0;">${cardHTML(m,{rank:ranked?i+1:null})}</div>`).join('');
+}
+
+// ─────────────────────────────────────────
+//  HERO
+// ─────────────────────────────────────────
+function heroHTML(m){
+  if(!m)return'';
+  const k=regM(m);
+  return`
+<div style="position:relative;width:100%;min-height:520px;overflow:hidden;display:flex;align-items:flex-end;" dir="rtl">
+  ${(m.backdrop||m.poster)?`<img src="${m.backdrop||m.poster}" alt=""
+    onerror="this.style.display='none';document.getElementById('hero_fb').style.display='block'"
+    style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:blur(2px) brightness(.28);transform:scale(1.05);">`:''}
+  <div id="hero_fb" style="${(m.backdrop||m.poster)?'display:none;':'display:block;'}position:absolute;inset:0;background:linear-gradient(135deg,#0a0800,#1a1200);"></div>
+  <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(8,8,8,1) 0%,rgba(8,8,8,.6) 40%,rgba(8,8,8,.1) 70%,transparent 100%);"></div>
+  <div style="position:absolute;inset:0;background:linear-gradient(to right,rgba(8,8,8,.9) 0%,rgba(8,8,8,.35) 50%,transparent 100%);"></div>
+  <div class="hero-content" style="position:relative;padding:80px 60px 60px;max-width:680px;z-index:2;">
+    <div style="display:inline-flex;align-items:center;gap:6px;background:${ACCENT}20;border:1px solid ${ACCENT}44;
+      border-radius:6px;padding:4px 12px;margin-bottom:16px;">
+      <div style="width:6px;height:6px;border-radius:50%;background:${ACCENT};"></div>
+      <span style="color:${ACCENT};font-size:.78rem;letter-spacing:.05em;font-family:'Cairo',sans-serif;">
+        ${m.genre?m.genre.split(',')[0].trim():(m._kind==='tv'?'مسلسل':'IMDB Top 250')}</span>
+    </div>
+    <h1 style="color:#fff;margin:0 0 14px;line-height:1.18;text-shadow:0 2px 24px rgba(0,0,0,.7);
+      font-family:'Cairo',sans-serif;font-size:clamp(1.9rem,5vw,3.4rem);font-weight:900;">${m.title||''}</h1>
+    <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px;
+      color:rgba(255,255,255,.55);font-size:.84rem;font-family:'Cairo',sans-serif;">
+      ${m.year?`<span style="display:flex;align-items:center;gap:5px;">${iCal(13)} ${m.year}</span>`:''}
+      ${m.rating?`<span style="color:#c9a84c;font-weight:700;display:flex;align-items:center;gap:5px;">${iStar(13)} ${parseFloat(m.rating).toFixed(1)}</span>`:''}
+    </div>
+    ${m.overview?`<p style="color:rgba(255,255,255,.5);font-size:.88rem;line-height:1.65;margin-bottom:22px;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+      font-family:'Cairo',sans-serif;">${m.overview}</p>`:''}
+    <button onclick="showDetails('${k}')"
+      style="display:inline-flex;align-items:center;gap:10px;background:${ACCENT};border:none;border-radius:10px;
+        color:#000;cursor:pointer;padding:13px 28px;font-family:'Cairo',sans-serif;font-size:.95rem;font-weight:700;
+        box-shadow:0 8px 24px ${ACCENT}40;transition:transform .2s,box-shadow .2s;"
+      onmouseenter="this.style.transform='translateY(-2px)'"
+      onmouseleave="this.style.transform=''">
+      ${iPlay(18,'#000')} شاهد الآن
+    </button>
+  </div>
+</div>`;
+}
+
+// ─────────────────────────────────────────
+//  HOVER
+// ─────────────────────────────────────────
+function attachHovers(){
+  document.querySelectorAll('.ep-card').forEach(card=>{
+    const img=card.querySelector('img'),ov=card.querySelector('.ep-ov'),pl=card.querySelector('.ep-pl');
+    card.addEventListener('mouseenter',()=>{
+      card.style.transform='scale(1.04) translateY(-4px)';
+      card.style.boxShadow=`0 22px 44px rgba(0,0,0,.7),0 0 0 1px ${ACCENT}44`;
+      if(img)img.style.transform='scale(1.08)';
+      if(ov)ov.style.background='rgba(0,0,0,.42)';
+      if(pl)pl.style.display='flex';
+    });
+    card.addEventListener('mouseleave',()=>{
+      card.style.transform='';card.style.boxShadow='0 4px 12px rgba(0,0,0,.4)';
+      if(img)img.style.transform='';
+      if(ov)ov.style.background='rgba(0,0,0,.06)';
+      if(pl)pl.style.display='none';
+    });
+  });
+}
+
+// ─────────────────────────────────────────
+//  TOAST
+// ─────────────────────────────────────────
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+// ─────────────────────────────────────────
+//  PAGES
+// ─────────────────────────────────────────
+function renderApp(page='home'){
+  document.getElementById('app').innerHTML=`
+${headerHTML(page)}
+<div id="srch_res" style="display:none;min-height:100vh;background:#080808;"></div>
+<div id="page_body" style="padding-top:64px;"></div>`;
+  mountHdr(document.getElementById('main_hdr'),false);
+  if(page==='home')renderHome();
+  if(page==='movies')renderMovies();
+  if(page==='tv')renderTV();
+  if(page==='books')renderBooks();
+  CUR_PAGE=page;
+}
+window.gotoPage=(page)=>{window.scrollTo(0,0);renderApp(page);};
+
+async function renderHome(){
+  const body=document.getElementById('page_body');
+  body.innerHTML=`<div id="hero_slot"></div><div style="padding-bottom:60px;">
+    ${rowHTML({id:'row_250',  title:'IMDB Top 250',  color:'#f5c518'})}
+    ${rowHTML({id:'row_mcu1', title:'MCU — Phase 1: The Infinity Saga', color:'#e62429'})}
+    ${rowHTML({id:'row_mcu2', title:'MCU — Phase 2', color:'#e62429'})}
+    ${rowHTML({id:'row_mcu3', title:'MCU — Phase 3', color:'#e62429'})}
+    ${rowHTML({id:'row_mcu4', title:'MCU — Phase 4', color:'#c0392b'})}
+    ${rowHTML({id:'row_mcu5', title:'MCU — Phase 5', color:'#c0392b'})}
+    ${rowHTML({id:'row_hp',   title:'هاري بوتر',     color:'#7b5ea7'})}
+    ${rowHTML({id:'row_dc',   title:'DC Universe',   color:'#1c88c7'})}
+    ${rowHTML({id:'row_d2020', title:'أفضل أفلام 2020-2025', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_d2010', title:'أفضل أفلام 2010-2019', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_d2000', title:'أفضل أفلام 2000-2009', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_d1990', title:'أفضل أفلام 1990-1999', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_d1980', title:'أفضل أفلام 1980-1989', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_nolan', title:'كريستوفر نولان', color:'#0ea5e9'})}
+    ${rowHTML({id:'row_finch', title:'ديفيد فينشر', color:'#0ea5e9'})}
+    ${rowHTML({id:'row_taran', title:'كوينتن تارانتينو', color:'#0ea5e9'})}
+    ${rowHTML({id:'row_scors', title:'مارتن سكورسيزي', color:'#0ea5e9'})}
+    <footer style="text-align:center;padding:36px 28px;border-top:1px solid rgba(255,255,255,.04);
+      color:#2a2a2a;font-size:.8rem;font-family:'Cairo',sans-serif;">CINEMA ELDON · مدعوم بـ TMDB</footer>
+  </div>`;
+  // Try cache first
+  // Instant — no await needed, fetch runs in background
+  const t250=fetchTop250();
+  const p1=fetchColl(MCU_P1),p2=fetchColl(MCU_P2),p3=fetchColl(MCU_P3);
+  const p4=fetchColl(MCU_P4),p5=fetchColl(MCU_P5);
+  const hp=fetchColl(HP_LIST),dc=fetchColl(DC_LIST);
+  const HERO_IDS=new Set([120, 121, 122, 155, 238, 240, 272, 278, 389, 671, 672, 673, 674, 675, 767, 769, 807, 1724, 1726, 10138, 10195, 12444, 12445, 22970, 24428, 49026, 68721, 76338, 99861, 100402, 102899, 118340, 271110, 283995, 284052, 284053, 284054, 299534, 299536, 299537, 315635, 361743, 363088, 400160, 447365, 497698, 524434, 533535, 566525, 616037, 616649, 634649, 640146, 800369, 822119, 986056]);
+  // Pick random hero from HERO_IDS in t250 — show immediately, image loads lazily
+  const heroList=t250.filter(m=>HERO_IDS.has(m.tmdb_id));
+  const hero=heroList[Math.floor(Math.random()*heroList.length)]||t250[0]||{title:'Cinema Eldon',poster:'',backdrop:'',rating:'',year:'',overview:''};
+  document.getElementById('hero_slot').innerHTML=heroHTML(hero);
+  fillRow('row_250',t250,true);
+  fillRow('row_mcu1',p1,false);fillRow('row_mcu2',p2,false);fillRow('row_mcu3',p3,false);
+  fillRow('row_mcu4',p4,false);fillRow('row_mcu5',p5,false);
+  fillRow('row_hp',hp,false);fillRow('row_dc',dc,false);
+  // Fetch decades and directors in background
+  Promise.all([
+    fetchDiscover({decade:'2020s'}),fetchDiscover({decade:'2010s'}),
+    fetchDiscover({decade:'2000s'}),fetchDiscover({decade:'1990s'}),fetchDiscover({decade:'1980s'}),
+    fetchDiscover({director:525}), // Nolan
+    fetchDiscover({director:7467}), // Fincher
+    fetchDiscover({director:138}), // Tarantino
+    fetchDiscover({director:1032}), // Scorsese
+  ]).then(([d20,d10,d00,d90,d80,nolan,finch,taran,scors])=>{
+    fillRow('row_d2020',d20,false);fillRow('row_d2010',d10,false);
+    fillRow('row_d2000',d00,false);fillRow('row_d1990',d90,false);fillRow('row_d1980',d80,false);
+    fillRow('row_nolan',nolan,false);fillRow('row_finch',finch,false);
+    fillRow('row_taran',taran,false);fillRow('row_scors',scors,false);
+    attachHovers();
+  });
+  attachHovers();
+}
+
+async function renderMovies(){
+  const body=document.getElementById('page_body');
+  body.innerHTML=`<div id="hero_slot"></div><div style="padding-bottom:60px;">
+    ${rowHTML({id:'rm_pop',title:'الأكثر مشاهدة',color:'#c9a84c'})}
+    ${rowHTML({id:'rm_act',title:'أكشن',color:'#c2410c'})}
+    ${rowHTML({id:'rm_dra',title:'دراما',color:'#1d4ed8'})}
+    ${rowHTML({id:'rm_hor',title:'رعب وإثارة',color:'#991b1b'})}
+    ${rowHTML({id:'rm_com',title:'كوميدي',color:'#0f766e'})}
+    ${rowHTML({id:'rm_sci',title:'خيال علمي',color:'#1e3a5f'})}
+    ${rowHTML({id:'rm_rom',title:'رومانسي',color:'#9d174d'})}
+    ${rowHTML({id:'rm_ani',title:'رسوم متحركة',color:'#16a34a'})}
+    ${rowHTML({id:'row_d2020', title:'أفضل أفلام 2020-2025', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_d2010', title:'أفضل أفلام 2010-2019', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_d2000', title:'أفضل أفلام 2000-2009', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_d1990', title:'أفضل أفلام 1990-1999', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_d1980', title:'أفضل أفلام 1980-1989', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_nolan', title:'كريستوفر نولان', color:'#0ea5e9'})}
+    ${rowHTML({id:'row_finch', title:'ديفيد فينشر', color:'#0ea5e9'})}
+    ${rowHTML({id:'row_taran', title:'كوينتن تارانتينو', color:'#0ea5e9'})}
+    ${rowHTML({id:'row_scors', title:'مارتن سكورسيزي', color:'#0ea5e9'})}
+    <footer style="text-align:center;padding:36px 28px;border-top:1px solid rgba(255,255,255,.04);
+      color:#2a2a2a;font-size:.8rem;font-family:'Cairo',sans-serif;">CINEMA ELDON · مدعوم بـ TMDB</footer>
+  </div>`;
+  const[pop,act,dra,hor,com,sci,rom,ani]=await Promise.all([
+    discover('movie','',1),discover('movie',28,1),discover('movie',18,1),discover('movie',27,1),
+    discover('movie',35,1),discover('movie',878,1),discover('movie',10749,1),discover('movie',16,1)]);
+  document.getElementById('hero_slot').innerHTML=heroHTML(pop.find(m=>m.backdrop)||pop[0]);
+  fillRow('rm_pop',pop,false);fillRow('rm_act',act,false);fillRow('rm_dra',dra,false);fillRow('rm_hor',hor,false);
+  fillRow('rm_com',com,false);fillRow('rm_sci',sci,false);fillRow('rm_rom',rom,false);fillRow('rm_ani',ani,false);
+  attachHovers();
+}
+
+async function renderTV(){
+  const body=document.getElementById('page_body');
+  body.innerHTML=`<div id="hero_slot"></div><div style="padding-bottom:60px;">
+    ${rowHTML({id:'rt_top',title:'أشهر مسلسلات التاريخ',color:'#f5c518'})}
+    ${rowHTML({id:'rt_pop',title:'الأكثر مشاهدة',color:'#c9a84c'})}
+    ${rowHTML({id:'rt_dra',title:'دراما',color:'#1d4ed8'})}
+    ${rowHTML({id:'rt_act',title:'أكشن',color:'#c2410c'})}
+    ${rowHTML({id:'rt_cri',title:'جريمة وغموض',color:'#374151'})}
+    ${rowHTML({id:'rt_com',title:'كوميدي',color:'#0f766e'})}
+    ${rowHTML({id:'rt_sci',title:'خيال علمي',color:'#1e3a5f'})}
+    ${rowHTML({id:'row_d2020', title:'أفضل أفلام 2020-2025', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_d2010', title:'أفضل أفلام 2010-2019', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_d2000', title:'أفضل أفلام 2000-2009', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_d1990', title:'أفضل أفلام 1990-1999', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_d1980', title:'أفضل أفلام 1980-1989', color:'#8b5cf6'})}
+    ${rowHTML({id:'row_nolan', title:'كريستوفر نولان', color:'#0ea5e9'})}
+    ${rowHTML({id:'row_finch', title:'ديفيد فينشر', color:'#0ea5e9'})}
+    ${rowHTML({id:'row_taran', title:'كوينتن تارانتينو', color:'#0ea5e9'})}
+    ${rowHTML({id:'row_scors', title:'مارتن سكورسيزي', color:'#0ea5e9'})}
+    <footer style="text-align:center;padding:36px 28px;border-top:1px solid rgba(255,255,255,.04);
+      color:#2a2a2a;font-size:.8rem;font-family:'Cairo',sans-serif;">CINEMA ELDON · مدعوم بـ TMDB</footer>
+  </div>`;
+  const[top,pop,dra,act,cri,com,sci]=await Promise.all([
+    fetchTopSeries(),discover('tv','',1),discover('tv',18,1),
+    discover('tv',10759,1),discover('tv',80,1),discover('tv',35,1),discover('tv',10765,1)]);
+  document.getElementById('hero_slot').innerHTML=heroHTML(top[0]||pop.find(m=>m.backdrop)||pop[0]);
+  fillRow('rt_top',top,true);fillRow('rt_pop',pop,false);fillRow('rt_dra',dra,false);fillRow('rt_act',act,false);
+  fillRow('rt_cri',cri,false);fillRow('rt_com',com,false);fillRow('rt_sci',sci,false);
+  attachHovers();
+}
+
+// ─────────────────────────────────────────
+//  MOBILE NAV
+// ─────────────────────────────────────────
+function injectNav(){
+  if(window.innerWidth>600)return;
+  if(document.getElementById('bnav'))document.getElementById('bnav').remove();
+  const nav=document.createElement('nav');
+  nav.id='bnav';
+  nav.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:300;background:rgba(8,8,8,.97);border-top:1px solid rgba(255,255,255,.06);display:flex;';
+  const pages=[{id:'home',icon:iHome(22),l:'الرئيسية'},{id:'movies',icon:iFilm(22),l:'أفلام'},{id:'tv',icon:iTV(22),l:'مسلسلات'},{id:'books',icon:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,l:'كتب'},{id:'s',icon:iSearch(22),l:'بحث'}];
+  nav.innerHTML=pages.map(p=>`<button onclick="${p.id==='s'?'openSearch()':("gotoPage('"+p.id+"')")}"
+    style="flex:1;background:none;border:none;color:${CUR_PAGE===p.id?ACCENT:'#555'};
+      font-family:'Cairo',sans-serif;font-size:.68rem;cursor:pointer;padding:10px 0 14px;
+      display:flex;flex-direction:column;align-items:center;gap:3px;">${p.icon}${p.l}</button>`).join('');
+  document.body.appendChild(nav);
+  const pb=document.getElementById('page_body');if(pb)pb.style.paddingBottom='72px';
+}
+
+
+// ─────────────────────────────────────────
+//  VID API CATALOG (availability check)
+// ─────────────────────────────────────────
+let VIDAPI_IDS = null;
+async function loadVidCatalog(){
+  if(VIDAPI_IDS) return VIDAPI_IDS;
+  const key='vidcat_v2', tsKey='vidcat_ts2';
+  const ts=parseInt(localStorage.getItem(tsKey)||'0');
+  if(Date.now()-ts < 86400000){
+    try{const raw=localStorage.getItem(key);if(raw){VIDAPI_IDS=new Set(JSON.parse(raw));return VIDAPI_IDS;}}catch{}
+  }
+  try{
+    // Fetch multiple pages of latest movies + TV from VidAPI catalog
+    const pages=await Promise.allSettled(
+      [1,2,3,4,5].map(p=>fetch(`https://vidapi.ru/movies/latest/page-${p}.json`).then(r=>r.ok?r.json():null))
+    );
+    const tvPages=await Promise.allSettled(
+      [1,2,3].map(p=>fetch(`https://vidapi.ru/episodes/latest/page-${p}.json`).then(r=>r.ok?r.json():null))
+    );
+    const ids=new Set();
+    [...pages,...tvPages].forEach(r=>{
+      if(r.status==='fulfilled'&&r.value){
+        (r.value.items||[]).forEach(i=>{ const id=i.tmdb_id||i.show_tmdb_id; if(id)ids.add(String(id)); });
+      }
+    });
+    if(ids.size>100){
+      VIDAPI_IDS=ids;
+      localStorage.setItem(key,JSON.stringify([...ids]));
+      localStorage.setItem(tsKey,String(Date.now()));
+    } else {
+      VIDAPI_IDS=new Set(); // empty = show everything (fallback)
+    }
+    return VIDAPI_IDS;
+  }catch{VIDAPI_IDS=new Set();return VIDAPI_IDS;}
+}
+function isAvailable(m){
+  if(!VIDAPI_IDS||VIDAPI_IDS.size===0)return true;
+  return VIDAPI_IDS.has(String(m.tmdb_id));
+}
+
+// ─────────────────────────────────────────
+//  HISTORY / BACK BUTTON
+// ─────────────────────────────────────────
+window.addEventListener('popstate', function(e){
+  const plyOpen = document.getElementById('modal')?.classList.contains('open');
+  const detOpen = document.getElementById('details_modal')?.classList.contains('open');
+  const pdfOpen = document.getElementById('pdf_modal')?.style.display==='flex';
+  const bkActOpen = document.getElementById('bk_action_modal')?.style.display==='flex';
+  if(plyOpen){ closeModal(); return; }
+  if(detOpen){ closeDet(); return; }
+  if(pdfOpen){ closePdf(); return; }
+  if(bkActOpen){ closeBookOptions(); return; }
+});
+
+// ─────────────────────────────────────────
+//  TV REMOTE CONTROL
+// ─────────────────────────────────────────
+(function initTVRemote(){
+  // Make all cards keyboard/tab focusable
+  function makeCardsFocusable(){
+    document.querySelectorAll('.ep-card').forEach(card=>{
+      if(!card.getAttribute('tabindex')) card.setAttribute('tabindex','0');
+      card.addEventListener('keydown', e=>{
+        if(e.key==='Enter'||e.key===' '){e.preventDefault();card.click();}
+        if(e.key==='ArrowRight'){e.preventDefault();
+          const wrap=card.closest('.ep-card-w');
+          const next=wrap&&wrap.nextElementSibling&&wrap.nextElementSibling.querySelector('.ep-card');
+          if(next){next.focus();next.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});}
+        }
+        if(e.key==='ArrowLeft'){e.preventDefault();
+          const wrap=card.closest('.ep-card-w');
+          const prev=wrap&&wrap.previousElementSibling&&wrap.previousElementSibling.querySelector('.ep-card');
+          if(prev){prev.focus();prev.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});}
+        }
+        if(e.key==='ArrowDown'){e.preventDefault();
+          const row=card.closest('[id^="row_"],[id^="rm_"],[id^="rt_"]');
+          const section=row&&row.closest('section');
+          const nextSection=section&&section.nextElementSibling;
+          const nextRow=nextSection&&nextSection.querySelector('[id^="row_"],[id^="rm_"],[id^="rt_"]');
+          const first=nextRow&&nextRow.querySelector('.ep-card');
+          if(first){first.focus();first.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});}
+        }
+        if(e.key==='ArrowUp'){e.preventDefault();
+          const row=card.closest('[id^="row_"],[id^="rm_"],[id^="rt_"]');
+          const section=row&&row.closest('section');
+          const prevSection=section&&section.previousElementSibling;
+          const prevRow=prevSection&&prevSection.querySelector('[id^="row_"],[id^="rm_"],[id^="rt_"]');
+          const first=prevRow&&prevRow.querySelector('.ep-card');
+          if(first){first.focus();first.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});}
+        }
+      });
+    });
+    // Make buttons focusable too
+    document.querySelectorAll('.det-btn,.season-pill,.ep-item,.det-close,.modal-close,.tv-nav-btn').forEach(btn=>{
+      if(!btn.getAttribute('tabindex')) btn.setAttribute('tabindex','0');
+    });
+  }
+
+  // Run on load and after each page render
+  const origFillRow = window.fillRow;
+  // Observe DOM changes to make new cards focusable
+  const obs = new MutationObserver(()=>makeCardsFocusable());
+  obs.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});
+  makeCardsFocusable();
+
+  // Global keyboard shortcuts
+  document.addEventListener('keydown', e=>{
+    const detOpen = document.getElementById('details_modal')?.classList.contains('open');
+    const plyOpen = document.getElementById('modal')?.classList.contains('open');
+    if(e.key==='Escape'||e.key==='Backspace'){
+      if(plyOpen){e.preventDefault();closeModal();}
+      else if(detOpen){e.preventDefault();closeDet();}
+    }
+    if(e.key==='MediaTrackNext') navigateEpisode(1);
+    if(e.key==='MediaTrackPrevious') navigateEpisode(-1);
+  });
+
+  window.addEventListener('popstate',()=>setTimeout(makeCardsFocusable,300));
+})();
+
+// ── PWA INSTALL ──────────────────────────────
+let _deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  _deferredPrompt=e;
+  // Show install button in header if not standalone
+  if(window.matchMedia('(display-mode: standalone)').matches)return;
+  const btn=document.getElementById('install_btn');
+  if(btn)btn.style.display='flex';
+});
+window.installPWA=function(){
+  if(!_deferredPrompt)return;
+  _deferredPrompt.prompt();
+  _deferredPrompt.userChoice.then(()=>{_deferredPrompt=null;
+    const btn=document.getElementById('install_btn');
+    if(btn)btn.style.display='none';
+  });
+};
+
+// ─────────────────────────────────────────
+//  BOOKS — IndexedDB Cache + Anna's Archive API
+// ─────────────────────────────────────────
+const RAPID_KEY='6063f46b64msh60311f8db150077p1a9e1djsn408e2c59887f';
+const RAPID_HOST='annas-archive-api.p.rapidapi.com';
+const CORS_PROXY='https://corsproxy.io/?url=';
+
+// IndexedDB helpers
+function openBooksDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open('CEBooksCache',1);
+    r.onupgradeneeded=e=>e.target.result.createObjectStore('blobs',{keyPath:'md5'});
+    r.onsuccess=e=>res(e.target.result);
+    r.onerror=e=>rej(e);
+  });
+}
+async function getBlobCache(md5){
+  try{
+    const db=await openBooksDB();
+    return new Promise(res=>{
+      const req=db.transaction('blobs','readonly').objectStore('blobs').get(md5);
+      req.onsuccess=e=>res(e.target.result?.blob||null);
+      req.onerror=()=>res(null);
+    });
+  }catch{return null;}
+}
+async function setBlobCache(md5,blob){
+  try{
+    const db=await openBooksDB();
+    return new Promise((res,rej)=>{
+      const tx=db.transaction('blobs','readwrite');
+      tx.objectStore('blobs').put({md5,blob,ts:Date.now()});
+      tx.oncomplete=res;tx.onerror=rej;
+    });
+  }catch(e){console.error('cache write',e);}
+}
+
+let BK_PAGE=1,BK_QUERY='',BK_TOTAL=0;
+
+async function searchBooks(page=1){
+  const q=(document.getElementById('bk_input')||{}).value||'';
+  const lang=(document.getElementById('bk_lang')||{}).value||'';
+  const fmt=(document.getElementById('bk_fmt')||{}).value||'';
+  if(!q)return;
+  BK_QUERY=q;BK_PAGE=page;
+  const res=document.getElementById('bk_results');
+  const load=document.getElementById('bk_load');
+  if(page===1&&res)res.innerHTML='';
+  if(load)load.style.display='block';
+  try{
+    const params=new URLSearchParams({
+      q,
+      page,
+      cat:'fiction,nonfiction,comic,magazine,musicalscore,other,unknown',
+      sort:'mostRelevant',
+      source:'libgenLi,libgenRs'
+    });
+    if(fmt)params.set('ext',fmt);
+    const r=await fetch('https://'+RAPID_HOST+'/search?'+params,{
+      headers:{
+        'X-RapidAPI-Key':RAPID_KEY,
+        'X-RapidAPI-Host':RAPID_HOST
+      }
+    });
+    const d=await r.json();
+    BK_TOTAL=d.totalPages||1;
+    if(load)load.style.display='none';
+    const books=d.books||d.results||[];
+    if(!books.length&&page===1){
+      if(res)res.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:60px;color:#333;font-family:Cairo,sans-serif;">لا توجد نتائج</div>';
+      return;
+    }
+    const filtered=lang?books.filter(b=>(b.language||'').toLowerCase().includes(lang.toLowerCase())):books;
+    const html=filtered.map(b=>`
+      <div onclick="showBookOptions(${JSON.stringify(b).replace(/"/g,'&quot;')})"
+        style="background:#111;border-radius:10px;overflow:hidden;cursor:pointer;
+          transition:transform .2s;border:1px solid rgba(255,255,255,.05);"
+        onmouseenter="this.style.transform='translateY(-4px)';this.style.borderColor='rgba(201,168,76,.2)'"
+        onmouseleave="this.style.transform='';this.style.borderColor='rgba(255,255,255,.05)'">
+        <div style="aspect-ratio:2/3;background:#1a1a1a;overflow:hidden;position:relative;">
+          ${b.cover||b.imgUrl?`<img src="${b.cover||b.imgUrl}" loading="lazy" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">`
+            :`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;">
+              <span style="font-size:.75rem;color:#444;font-family:Cairo,sans-serif;text-align:center;line-height:1.4;">${b.title||''}</span>
+            </div>`}
+          <div style="position:absolute;bottom:0;left:0;right:0;padding:4px 6px;background:rgba(0,0,0,.85);
+            display:flex;gap:4px;justify-content:flex-end;align-items:center;">
+            ${b.fileType||b.format?`<span style="font-size:.62rem;color:#c9a84c;font-family:Cairo,sans-serif;text-transform:uppercase;font-weight:700;">${b.fileType||b.format}</span>`:''}
+            ${b.fileSize||b.size?`<span style="font-size:.58rem;color:#555;font-family:Cairo,sans-serif;">${b.fileSize||b.size}</span>`:''}
+          </div>
+        </div>
+        <div style="padding:8px 10px 10px;">
+          <div style="font-size:.78rem;color:#e0e0e0;font-weight:600;font-family:Cairo,sans-serif;
+            overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-bottom:4px;">${b.title||''}</div>
+          <div style="font-size:.68rem;color:#555;font-family:Cairo,sans-serif;
+            overflow:hidden;white-space:nowrap;text-overflow:ellipsis;">${b.author||b.authors||''}</div>
+          ${b.year?`<div style="font-size:.62rem;color:#444;font-family:Cairo,sans-serif;margin-top:2px;">${b.year}</div>`:''}
+        </div>
+      </div>`).join('');
+    if(res)res.innerHTML=(page===1?'':res.innerHTML)+html;
+    if(BK_PAGE<BK_TOTAL){
+      const more=document.createElement('div');
+      more.id='bk_more';
+      more.style.cssText='grid-column:1/-1;text-align:center;padding:16px;';
+      more.innerHTML=`<button onclick="searchBooks(${BK_PAGE+1})" style="padding:12px 32px;background:#1a1a1a;
+        border:1px solid rgba(201,168,76,.3);border-radius:10px;color:#c9a84c;
+        font-family:Cairo,sans-serif;cursor:pointer;">تحميل المزيد</button>`;
+      const old=document.getElementById('bk_more');
+      if(old)old.remove();
+      if(res)res.appendChild(more);
+    }
+  }catch(e){
+    if(load)load.style.display='none';
+    console.error('books search',e);
+    showToast('حدث خطأ في البحث');
+  }
+}
+
+// Show book action sheet (2 options: download / view)
+window.showBookOptions=function(b){
+  const modal=document.getElementById('bk_action_modal');
+  if(!modal)return;
+  const fmt=(b.fileType||b.format||'').toLowerCase();
+  const coverSrc=b.cover||b.imgUrl||'';
+  document.getElementById('bk_act_cover').innerHTML=coverSrc
+    ?`<img src="${coverSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" onerror="this.outerHTML='<div style=width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#444;font-size:1.8rem>📖</div>'">`
+    :`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:2rem;">📖</div>`;
+  document.getElementById('bk_act_title').textContent=b.title||'—';
+  document.getElementById('bk_act_author').textContent=b.author||b.authors||'';
+  const metaParts=[(fmt||'').toUpperCase(),b.fileSize||b.size||'',b.year||'',b.language||''].filter(Boolean);
+  document.getElementById('bk_act_meta').textContent=metaParts.join(' · ');
+  // Show/hide view button based on format
+  const viewBtn=document.getElementById('bk_view_btn');
+  if(viewBtn)viewBtn.style.display=(fmt==='pdf'||fmt==='epub'||fmt==='')?'flex':'none';
+  modal._book=b;
+  modal.style.display='flex';
+  document.body.style.overflow='hidden';
+  history.pushState({modal:'bkact'},'');
+};
+
+window.closeBookOptions=function(){
+  const modal=document.getElementById('bk_action_modal');
+  if(modal)modal.style.display='none';
+  document.body.style.overflow='';
+};
+
+// Download: get link from API → open in new tab
+window.downloadBook=async function(){
+  const modal=document.getElementById('bk_action_modal');
+  const b=modal?._book;
+  if(!b||!b.md5){showToast('بيانات الكتاب غير مكتملة');return;}
+  showToast('⏳ جاري الحصول على رابط التحميل…');
+  try{
+    const r=await fetch('https://'+RAPID_HOST+'/download?md5='+b.md5,{
+      headers:{'X-RapidAPI-Key':RAPID_KEY,'X-RapidAPI-Host':RAPID_HOST}
+    });
+    const d=await r.json();
+    const links=Array.isArray(d)?d:(d.links||d.downloadLinks||d.urls||[]);
+    const first=links[0];
+    const url=typeof first==='string'?first:(first?.url||first?.link||'');
+    if(!url){showToast('لا توجد روابط متاحة');return;}
+    window.open(url,'_blank');
+  }catch(e){
+    console.error('downloadBook',e);
+    showToast('حدث خطأ أثناء التحميل');
+  }
+};
+
+// View: blob → IndexedDB cache → in-app PDF.js reader
+window.viewBook=async function(){
+  const modal=document.getElementById('bk_action_modal');
+  const b=modal?._book;
+  if(!b||!b.md5){showToast('بيانات الكتاب غير مكتملة');return;}
+  closeBookOptions();
+  showToast('🔍 جاري البحث في الكاش…');
+
+  // 1. Check IndexedDB cache
+  const cached=await getBlobCache(b.md5);
+  if(cached){
+    showToast('✅ تم التحميل من الكاش');
+    openBlobViewer(cached,b);
+    return;
+  }
+
+  // 2. Get download links from API
+  showToast('⏳ جاري جلب رابط التحميل…');
+  let downloadUrl='';
+  try{
+    const r=await fetch('https://'+RAPID_HOST+'/download?md5='+b.md5,{
+      headers:{'X-RapidAPI-Key':RAPID_KEY,'X-RapidAPI-Host':RAPID_HOST}
+    });
+    const d=await r.json();
+    const links=Array.isArray(d)?d:(d.links||d.downloadLinks||d.urls||[]);
+    const first=links[0];
+    downloadUrl=typeof first==='string'?first:(first?.url||first?.link||'');
+  }catch(e){showToast('تعذر جلب رابط التحميل');return;}
+  if(!downloadUrl){showToast('لا توجد روابط متاحة');return;}
+
+  // 3. Fetch as blob via CORS proxy → cache → open
+  showToast('⬇️ جاري تحميل الملف…');
+  try{
+    const proxyUrl=CORS_PROXY+encodeURIComponent(downloadUrl);
+    const res=await fetch(proxyUrl);
+    if(!res.ok)throw new Error('proxy '+res.status);
+    const blob=await res.blob();
+    await setBlobCache(b.md5,blob);
+    showToast('✅ تم التحميل بنجاح');
+    openBlobViewer(blob,b);
+  }catch(e){
+    console.error('viewBook blob',e);
+    // Fallback: open in new tab if CORS blocked
+    showToast('فتح في تاب خارجي…');
+    window.open(downloadUrl,'_blank');
+  }
+};
+
+function openBlobViewer(blob,b){
+  const blobUrl=URL.createObjectURL(blob);
+  const modal=document.getElementById('pdf_modal');
+  const iframe=document.getElementById('pdf_iframe');
+  const title=document.getElementById('pdf_title');
+  const dlBtn=document.getElementById('pdf_download');
+  if(!modal||!iframe)return;
+  if(title)title.textContent=b.title||'';
+  const fmt=(b.fileType||b.format||blob.type||'').toLowerCase();
+  const isPdf=fmt.includes('pdf');
+  if(dlBtn){
+    dlBtn.href=blobUrl;
+    dlBtn.setAttribute('download',(b.title||'book')+'.'+(isPdf?'pdf':'epub'));
+  }
+  if(isPdf){
+    iframe.src='https://mozilla.github.io/pdf.js/web/viewer.html?file='+encodeURIComponent(blobUrl);
+  }else{
+    iframe.src=blobUrl;
+  }
+  modal.style.display='flex';
+  document.body.style.overflow='hidden';
+  history.pushState({modal:'pdf'},'');
+}
+
+window.closePdf=function(){
+  const modal=document.getElementById('pdf_modal');
+  if(modal)modal.style.display='none';
+  const iframe=document.getElementById('pdf_iframe');
+  if(iframe){
+    if(iframe.src&&iframe.src.startsWith('blob:'))URL.revokeObjectURL(iframe.src);
+    iframe.src='';
+  }
+  document.body.style.overflow='';
+};
+
+async function renderBooks(){
+  const body=document.getElementById('page_body');
+  if(!body)return;
+  body.style.paddingTop='0';
+  body.innerHTML=`
+<div style="padding:80px 20px 100px;" dir="rtl">
+  <h1 style="font-family:'Cairo',sans-serif;font-size:1.4rem;font-weight:800;color:#f0f0f0;margin:0 0 16px;">📚 مكتبة الكتب</h1>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+    <div style="flex:1;min-width:200px;">
+      <input id="bk_input" type="text" placeholder="ابحث عن كتاب..." dir="rtl"
+        style="width:100%;padding:12px 16px;background:#1a1a1a;border:1px solid rgba(255,255,255,.1);
+          border-radius:10px;color:#f0f0f0;font-family:'Cairo',sans-serif;font-size:.95rem;box-sizing:border-box;outline:none;"
+        onkeydown="if(event.key==='Enter')searchBooks()"/>
+    </div>
+    <select id="bk_lang" style="padding:12px 14px;background:#1a1a1a;border:1px solid rgba(255,255,255,.1);
+      border-radius:10px;color:#888;font-family:'Cairo',sans-serif;cursor:pointer;outline:none;">
+      <option value="">كل اللغات</option>
+      <option value="arabic">عربي</option>
+      <option value="english">إنجليزي</option>
+    </select>
+    <select id="bk_fmt" style="padding:12px 14px;background:#1a1a1a;border:1px solid rgba(255,255,255,.1);
+      border-radius:10px;color:#888;font-family:'Cairo',sans-serif;cursor:pointer;outline:none;">
+      <option value="">كل الصيغ</option>
+      <option value="pdf">PDF</option>
+      <option value="epub">EPUB</option>
+    </select>
+    <button onclick="searchBooks()"
+      style="padding:12px 24px;background:linear-gradient(135deg,#c9a84c,#8a6a20);border:none;
+        border-radius:10px;color:#000;font-family:'Cairo',sans-serif;font-weight:700;cursor:pointer;">
+      بحث
+    </button>
+  </div>
+  <div id="bk_results" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px;"></div>
+  <div id="bk_load" style="text-align:center;padding:40px;display:none;">
+    <div style="width:32px;height:32px;border:3px solid rgba(201,168,76,.2);border-top-color:#c9a84c;
+      border-radius:50%;animation:spin 1s linear infinite;margin:auto;"></div>
+  </div>
+</div>
+
+<!-- PDF VIEWER MODAL -->
+<div id="pdf_modal" style="display:none;position:fixed;inset:0;z-index:800;background:#000;flex-direction:column;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
+    background:#111;border-bottom:1px solid rgba(255,255,255,.08);">
+    <button onclick="closePdf()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1.4rem;padding:4px 10px;">←</button>
+    <span id="pdf_title" style="color:#f0f0f0;font-family:'Cairo',sans-serif;font-size:.9rem;
+      max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+    <a id="pdf_download" href="#" style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);
+      border-radius:8px;color:#c9a84c;padding:7px 14px;font-family:'Cairo',sans-serif;font-size:.8rem;text-decoration:none;">⬇ تحميل</a>
+  </div>
+  <iframe id="pdf_iframe" style="flex:1;border:none;width:100%;background:#1a1a1a;"></iframe>
+</div>
+
+<!-- BOOK ACTION SHEET -->
+<div id="bk_action_modal" style="display:none;position:fixed;inset:0;z-index:810;
+  background:rgba(0,0,0,.85);backdrop-filter:blur(10px);
+  align-items:flex-end;justify-content:center;" onclick="if(event.target===this)closeBookOptions()">
+  <div style="width:100%;max-width:520px;background:#111;border-radius:18px 18px 0 0;
+    padding:24px 20px 36px;animation:slideUp .28s ease;" dir="rtl">
+    <!-- Handle -->
+    <div style="width:36px;height:4px;background:#333;border-radius:2px;margin:0 auto 20px;"></div>
+    <!-- Book Info -->
+    <div style="display:flex;gap:14px;margin-bottom:22px;">
+      <div id="bk_act_cover" style="flex-shrink:0;width:72px;height:108px;border-radius:8px;
+        background:#1a1a1a;overflow:hidden;"></div>
+      <div style="flex:1;min-width:0;">
+        <div id="bk_act_title" style="font-family:'Cairo',sans-serif;font-size:1rem;font-weight:700;
+          color:#f0f0f0;margin-bottom:6px;line-height:1.3;"></div>
+        <div id="bk_act_author" style="font-family:'Cairo',sans-serif;font-size:.8rem;color:#666;margin-bottom:8px;
+          overflow:hidden;white-space:nowrap;text-overflow:ellipsis;"></div>
+        <div id="bk_act_meta" style="font-family:'Cairo',sans-serif;font-size:.72rem;color:#c9a84c;"></div>
+      </div>
+    </div>
+    <!-- Action Buttons -->
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button id="bk_view_btn" onclick="viewBook()"
+        style="display:flex;align-items:center;justify-content:center;gap:10px;
+          background:linear-gradient(135deg,#c9a84c,#8a6a20);border:none;border-radius:12px;
+          color:#000;padding:14px;font-family:'Cairo',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;">
+        📖 قراءة داخل التطبيق
+      </button>
+      <button onclick="downloadBook()"
+        style="display:flex;align-items:center;justify-content:center;gap:10px;
+          background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:12px;
+          color:#f0f0f0;padding:14px;font-family:'Cairo',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;">
+        ⬇ تحميل مباشر
+      </button>
+      <button onclick="closeBookOptions()"
+        style="background:none;border:none;color:#555;font-family:'Cairo',sans-serif;
+          font-size:.88rem;cursor:pointer;padding:8px;">إلغاء</button>
+    </div>
+  </div>
+</div>`;
+  // Auto-search on open
+  setTimeout(()=>{
+    const inp=document.getElementById('bk_input');
+    if(inp){inp.value='رواية';searchBooks();}
+  },100);
+}
+
+// ─────────────────────────────────────────
+//  BOOT
+// ─────────────────────────────────────────
+(async function boot(){
+  try{
+    renderApp('home');
+    injectNav();
+    const l=document.getElementById('loading');
+    if(l){l.style.opacity='0';setTimeout(()=>{try{l.remove();}catch{}},400);}
+  }catch(e){
+    console.error(e);
+    const l=document.getElementById('loading');
+    if(l)l.style.display='none';
+  }
+})();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/sw.js').then(reg=>{
+      reg.addEventListener('updatefound',()=>{
+        const w=reg.installing;
+        w.addEventListener('statechange',()=>{
+          if(w.state==='installed'&&navigator.serviceWorker.controller){
+            navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload());
+            w.postMessage({type:'SKIP_WAITING'});
+          }
+        });
+      });
+    });
+  });
+}
+</script>
+</body>
+</html>
