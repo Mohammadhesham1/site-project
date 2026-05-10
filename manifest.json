@@ -1,0 +1,24 @@
+{
+  "name": "Cinema Eldon",
+  "short_name": "Cinema Eldon",
+  "description": "مشاهدة الأفلام والمسلسلات",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#080808",
+  "theme_color": "#080808",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "entertainment"
+  ],
+  "prefer_related_applications": false
+}
