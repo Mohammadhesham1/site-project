@@ -5,6 +5,25 @@
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <meta name="theme-color" content="#080808"/>
 <link rel="manifest" href="manifest.json"/>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    navigator.serviceWorker.register('/sw.js').then(reg=>{
+      // Check for updates
+      reg.addEventListener('updatefound',()=>{
+        const w=reg.installing;
+        w.addEventListener('statechange',()=>{
+          if(w.state==='installed'&&navigator.serviceWorker.controller){
+            // New version available — reload
+            navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload());
+            w.postMessage({type:'SKIP_WAITING'});
+          }
+        });
+      });
+    });
+  });
+}
+</script>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -288,6 +307,13 @@ body{background:#080808;color:#f0f0f0;font-family:'Cairo',sans-serif;min-height:
 <div id="toast"></div>
 
 <script>
+// ─────────────────────────────────────────
+//  CACHE
+// ─────────────────────────────────────────
+const APP_VER='v5';
+function cacheSet(k,d){try{localStorage.setItem('ce_'+APP_VER+'_'+k,JSON.stringify(d));}catch{}}
+function cacheGet(k){try{const r=localStorage.getItem('ce_'+APP_VER+'_'+k);return r?JSON.parse(r):null;}catch{return null;}}
+
 // ─────────────────────────────────────────
 //  CONFIG
 // ─────────────────────────────────────────
@@ -1449,9 +1475,18 @@ async function renderHome(){
     <footer style="text-align:center;padding:36px 28px;border-top:1px solid rgba(255,255,255,.04);
       color:#2a2a2a;font-size:.8rem;font-family:'Cairo',sans-serif;">CINEMA ELDON · مدعوم بـ TMDB</footer>
   </div>`;
-  const[t250,p1,p2,p3,p4,p5,hp,dc]=await Promise.all([
-    fetchTop250(),fetchColl(MCU_P1),fetchColl(MCU_P2),fetchColl(MCU_P3),
-    fetchColl(MCU_P4),fetchColl(MCU_P5),fetchColl(HP_LIST),fetchColl(DC_LIST)]);
+  // Try cache first
+  let t250=cacheGet('t250'),p1=cacheGet('mcu1'),p2=cacheGet('mcu2'),p3=cacheGet('mcu3'),
+      p4=cacheGet('mcu4'),p5=cacheGet('mcu5'),hp=cacheGet('hp'),dc=cacheGet('dc');
+
+  const missing=!t250||!p1||!p2||!p3||!p4||!p5||!hp||!dc;
+  if(missing){
+    [t250,p1,p2,p3,p4,p5,hp,dc]=await Promise.all([
+      fetchTop250(),fetchColl(MCU_P1),fetchColl(MCU_P2),fetchColl(MCU_P3),
+      fetchColl(MCU_P4),fetchColl(MCU_P5),fetchColl(HP_LIST),fetchColl(DC_LIST)]);
+    cacheSet('t250',t250);cacheSet('mcu1',p1);cacheSet('mcu2',p2);cacheSet('mcu3',p3);
+    cacheSet('mcu4',p4);cacheSet('mcu5',p5);cacheSet('hp',hp);cacheSet('dc',dc);
+  }
   const HERO_IDS=new Set([120, 121, 122, 155, 238, 240, 272, 278, 389, 671, 672, 673, 674, 675, 767, 769, 807, 1724, 1726, 10138, 10195, 12444, 12445, 22970, 24428, 49026, 68721, 76338, 99861, 100402, 102899, 118340, 271110, 283995, 284052, 284053, 284054, 299534, 299536, 299537, 315635, 361743, 363088, 400160, 447365, 497698, 524434, 533535, 566525, 616037, 616649, 634649, 640146, 800369, 822119, 986056]);
   const heroPool=[...t250,...p1,...p2,...p3,...p4,...p5,...hp,...dc]
     .filter(m=>(m.backdrop||m.poster)&&HERO_IDS.has(m.tmdb_id));
@@ -1844,25 +1879,4 @@ async function renderBooks(){
     <select id="bk_fmt" style="padding:12px 14px;background:#1a1a1a;border:1px solid rgba(255,255,255,.1);
       border-radius:10px;color:#888;font-family:'Cairo',sans-serif;cursor:pointer;outline:none;">
       <option value="">كل الصيغ</option>
-      <option value="pdf">PDF</option>
-      <option value="epub">EPUB</option>
-    </select>
-    <button onclick="searchBooks()"
-      style="padding:12px 24px;background:linear-gradient(135deg,#c9a84c,#8a6a20);border:none;
-        border-radius:10px;color:#000;font-family:'Cairo',sans-serif;font-weight:700;cursor:pointer;">
-      بحث
-    </button>
-  </div>
-  <div id="bk_results" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px;"></div>
-  <div id="bk_load" style="text-align:center;padding:40px;display:none;">
-    <div style="width:32px;height:32px;border:3px solid rgba(201,168,76,.2);border-top-color:#c9a84c;
-      border-radius:50%;animation:spin 1s linear infinite;margin:auto;"></div>
-  </div>
-</div>
-<div id="pdf_modal" style="display:none;position:fixed;inset:0;z-index:800;background:#000;flex-direction:column;">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
-    background:#111;border-bottom:1px solid rgba(255,255,255,.08);">
-    <button onclick="closePdf()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1.4rem;padding:4px 10px;">←</button>
-    <span id="pdf_title" style="color:#f0f0f0;font-family:'Cairo',sans-serif;font-size:.9rem;
-      max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
-    <a id="pdf_download" href="#" style="background:rgba(201,168,76,.12);border
+      <option value="pdf">PDF</
