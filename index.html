@@ -749,7 +749,7 @@ function mountHdr(el,solid=false){
   _hdrFn();
 }
 function headerHTML(active='home'){
-  const pages=[{id:'home',l:'الرئيسية'},{id:'movies',l:'أفلام'},{id:'tv',l:'مسلسلات'}];
+  const pages=[{id:'home',l:'الرئيسية'},{id:'movies',l:'أفلام'},{id:'tv',l:'مسلسلات'},{id:'books',l:'كتب'}];
   const mob=window.innerWidth<600;
   return`
 <header id="main_hdr" style="position:fixed;top:0;left:0;right:0;z-index:100;padding:0 ${mob?'12px':'28px'};height:${mob?'52px':'64px'};
@@ -1551,7 +1551,7 @@ function injectNav(){
   const nav=document.createElement('nav');
   nav.id='bnav';
   nav.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:300;background:rgba(8,8,8,.97);border-top:1px solid rgba(255,255,255,.06);display:flex;';
-  const pages=[{id:'home',icon:iHome(22),l:'الرئيسية'},{id:'movies',icon:iFilm(22),l:'أفلام'},{id:'tv',icon:iTV(22),l:'مسلسلات'},{id:'s',icon:iSearch(22),l:'بحث'}];
+  const pages=[{id:'home',icon:iHome(22),l:'الرئيسية'},{id:'movies',icon:iFilm(22),l:'أفلام'},{id:'tv',icon:iTV(22),l:'مسلسلات'},{id:'books',icon:`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,l:'كتب'},{id:'s',icon:iSearch(22),l:'بحث'}];
   nav.innerHTML=pages.map(p=>`<button onclick="${p.id==='s'?'openSearch()':("gotoPage('"+p.id+"')")}"
     style="flex:1;background:none;border:none;color:${CUR_PAGE===p.id?ACCENT:'#555'};
       font-family:'Cairo',sans-serif;font-size:.68rem;cursor:pointer;padding:10px 0 14px;
@@ -1813,10 +1813,58 @@ window.closePdf=function(){
 };
 
 async function renderBooks(){
-  // Auto-search Arabic books on open
+  const body=document.getElementById('page_body');
+  if(!body)return;
+  body.style.paddingTop='0';
+  body.innerHTML=`
+<div style="padding:80px 20px 100px;" dir="rtl">
+  <h1 style="font-family:'Cairo',sans-serif;font-size:1.4rem;font-weight:800;color:#f0f0f0;margin:0 0 16px;">مكتبة الكتب</h1>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+    <div style="flex:1;min-width:200px;">
+      <input id="bk_input" type="text" placeholder="ابحث عن كتاب..." dir="rtl"
+        style="width:100%;padding:12px 16px;background:#1a1a1a;border:1px solid rgba(255,255,255,.1);
+          border-radius:10px;color:#f0f0f0;font-family:'Cairo',sans-serif;font-size:.95rem;box-sizing:border-box;outline:none;"
+        onkeydown="if(event.key==='Enter')searchBooks()"/>
+    </div>
+    <select id="bk_lang" style="padding:12px 14px;background:#1a1a1a;border:1px solid rgba(255,255,255,.1);
+      border-radius:10px;color:#888;font-family:'Cairo',sans-serif;cursor:pointer;outline:none;">
+      <option value="">كل اللغات</option>
+      <option value="Arabic">عربي</option>
+      <option value="English">إنجليزي</option>
+    </select>
+    <select id="bk_fmt" style="padding:12px 14px;background:#1a1a1a;border:1px solid rgba(255,255,255,.1);
+      border-radius:10px;color:#888;font-family:'Cairo',sans-serif;cursor:pointer;outline:none;">
+      <option value="">كل الصيغ</option>
+      <option value="pdf">PDF</option>
+      <option value="epub">EPUB</option>
+    </select>
+    <button onclick="searchBooks()"
+      style="padding:12px 24px;background:linear-gradient(135deg,#c9a84c,#8a6a20);border:none;
+        border-radius:10px;color:#000;font-family:'Cairo',sans-serif;font-weight:700;cursor:pointer;">
+      بحث
+    </button>
+  </div>
+  <div id="bk_results" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px;"></div>
+  <div id="bk_load" style="text-align:center;padding:40px;display:none;">
+    <div style="width:32px;height:32px;border:3px solid rgba(201,168,76,.2);border-top-color:#c9a84c;
+      border-radius:50%;animation:spin 1s linear infinite;margin:auto;"></div>
+  </div>
+</div>
+<div id="pdf_modal" style="display:none;position:fixed;inset:0;z-index:800;background:#000;flex-direction:column;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;
+    background:#111;border-bottom:1px solid rgba(255,255,255,.08);">
+    <button onclick="closePdf()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1.4rem;padding:4px 10px;">←</button>
+    <span id="pdf_title" style="color:#f0f0f0;font-family:'Cairo',sans-serif;font-size:.9rem;
+      max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+    <a id="pdf_download" href="#" style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);
+      border-radius:8px;color:#c9a84c;padding:7px 14px;font-family:'Cairo',sans-serif;font-size:.8rem;text-decoration:none;">⬇ تحميل</a>
+  </div>
+  <iframe id="pdf_iframe" style="flex:1;border:none;width:100%;background:#1a1a1a;"></iframe>
+</div>`;
+  // Auto-search on open
   setTimeout(()=>{
     const inp=document.getElementById('bk_input');
-    if(inp){inp.value='روايات عربية';searchBooks();}
+    if(inp){inp.value='رواية';searchBooks();}
   },100);
 }
 
