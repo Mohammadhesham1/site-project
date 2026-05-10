@@ -1494,9 +1494,9 @@ async function renderHome(){
   const p4=fetchColl(MCU_P4),p5=fetchColl(MCU_P5);
   const hp=fetchColl(HP_LIST),dc=fetchColl(DC_LIST);
   const HERO_IDS=new Set([120, 121, 122, 155, 238, 240, 272, 278, 389, 671, 672, 673, 674, 675, 767, 769, 807, 1724, 1726, 10138, 10195, 12444, 12445, 22970, 24428, 49026, 68721, 76338, 99861, 100402, 102899, 118340, 271110, 283995, 284052, 284053, 284054, 299534, 299536, 299537, 315635, 361743, 363088, 400160, 447365, 497698, 524434, 533535, 566525, 616037, 616649, 634649, 640146, 800369, 822119, 986056]);
-  const heroPool=[...t250,...p1,...p2,...p3,...p4,...p5,...hp,...dc]
-    .filter(m=>(m.backdrop||m.poster)&&HERO_IDS.has(m.tmdb_id));
-  const hero=heroPool[Math.floor(Math.random()*heroPool.length)]||t250[0];
+  // Pick random hero from HERO_IDS in t250 — show immediately, image loads lazily
+  const heroList=t250.filter(m=>HERO_IDS.has(m.tmdb_id));
+  const hero=heroList[Math.floor(Math.random()*heroList.length)]||t250[0]||{title:'Cinema Eldon',poster:'',backdrop:'',rating:'',year:'',overview:''};
   document.getElementById('hero_slot').innerHTML=heroHTML(hero);
   fillRow('row_250',t250,true);
   fillRow('row_mcu1',p1,false);fillRow('row_mcu2',p2,false);fillRow('row_mcu3',p3,false);
@@ -1889,4 +1889,4 @@ async function renderBooks(){
       <option value="epub">EPUB</option>
     </select>
     <button onclick="searchBooks()"
-      style="padding:12px 24px;background:linear-gradient(135deg,#c9a84c,#8a6a20);bo
+ 
