@@ -680,43 +680,55 @@ function bldM(d,imdb,rat){
     backdrop:d.backdrop_path?TMDB_BG+d.backdrop_path:''};
 }
 async function fetchTop250(){
-  const res=[];
-  for(let i=0;i<TOP250.length;i++){
-    const[tt,tmdb,title,year,r]=TOP250[i];
-    if(MCACHE[tmdb]){res.push(MCACHE[tmdb]);continue;}
-    try{const d=await tf('/movie/'+tmdb);const o=bldM(d,tt,r);MCACHE[tmdb]=o;res.push(o);}
-    catch{res.push({imdb_id:tt,tmdb_id:tmdb,title,year:String(year),rating:String(r),genre:'',overview:'',poster:'',backdrop:''});}
-    if(i>0&&i%20===0)await sleep(200);
-  }
-  return res;
+  // Build instantly from static data — no API calls needed
+  // Poster images load lazily from TMDB via tmdb_id
+  return TOP250.map(([tt,tmdb,title,year,r])=>{
+    if(MCACHE[tmdb])return MCACHE[tmdb];
+    const o={imdb_id:tt,tmdb_id:tmdb,title,year:String(year),rating:String(r),
+      genre:'',overview:'',
+      poster:`https://image.tmdb.org/t/p/w500${tmdb}`,// will be fixed by TMDB
+      backdrop:''};
+    // Fetch poster path async without blocking
+    tf('/movie/'+tmdb).then(d=>{
+      if(d.poster_path)o.poster=TMDB_IMG+d.poster_path;
+      if(d.backdrop_path)o.backdrop=TMDB_BG+d.backdrop_path;
+      if(d.overview)o.overview=d.overview;
+      MCACHE[tmdb]=o;
+    }).catch(()=>{});
+    return o;
+  });
 }
 async function fetchColl(list){
-  const res=[];
-  for(const item of list){
-    if(MCACHE[item.tmdb]){res.push(MCACHE[item.tmdb]);continue;}
-    try{const d=await tf('/movie/'+item.tmdb);const o=bldM(d,item.tt,item.r);MCACHE[item.tmdb]=o;res.push(o);}
-    catch{res.push({imdb_id:item.tt,tmdb_id:item.tmdb,title:item.title,year:String(item.year),rating:String(item.r),genre:'',overview:'',poster:'',backdrop:''});}
-  }
-  return res;
+  return list.map(item=>{
+    if(MCACHE[item.tmdb])return MCACHE[item.tmdb];
+    const o={imdb_id:item.tt,tmdb_id:item.tmdb,title:item.title,
+      year:String(item.year),rating:String(item.r),genre:'',overview:'',poster:'',backdrop:''};
+    // Fetch details async
+    tf('/movie/'+item.tmdb).then(d=>{
+      if(d.poster_path)o.poster=TMDB_IMG+d.poster_path;
+      if(d.backdrop_path)o.backdrop=TMDB_BG+d.backdrop_path;
+      if(d.overview)o.overview=d.overview;
+      MCACHE[item.tmdb]=o;
+    }).catch(()=>{});
+    return o;
+  });
 }
 async function fetchTopSeries(){
-  const res=[];
-  for(const item of TOP10_SERIES){
+  return TOP10_SERIES.map(item=>{
     const ck='tv_'+item.tmdb;
-    if(MCACHE[ck]){res.push(MCACHE[ck]);continue;}
-    try{
-      const d=await tf('/tv/'+item.tmdb);
-      const o={imdb_id:item.tt,tmdb_id:item.tmdb,title:d.name||item.title,
-        year:(d.first_air_date||'').slice(0,4)||String(item.year),rating:String(item.r),
-        genre:(d.genres||[]).map(g=>g.name).join(', '),overview:d.overview||'',
-        poster:d.poster_path?TMDB_IMG+d.poster_path:'',
-        backdrop:d.backdrop_path?TMDB_BG+d.backdrop_path:'',
-        _kind:'tv',num_seasons:d.number_of_seasons||1};
-      MCACHE[ck]=o;res.push(o);
-    }catch{res.push({imdb_id:item.tt,tmdb_id:item.tmdb,title:item.title,year:String(item.year),
-      rating:String(item.r),genre:'',overview:'',poster:'',backdrop:'',_kind:'tv',num_seasons:1});}
-  }
-  return res;
+    if(MCACHE[ck])return MCACHE[ck];
+    const o={imdb_id:item.tt,tmdb_id:item.tmdb,title:item.title,
+      year:String(item.year),rating:String(item.r),genre:'',overview:'',
+      poster:'',backdrop:'',_kind:'tv',num_seasons:1};
+    tf('/tv/'+item.tmdb).then(d=>{
+      if(d.poster_path)o.poster=TMDB_IMG+d.poster_path;
+      if(d.backdrop_path)o.backdrop=TMDB_BG+d.backdrop_path;
+      if(d.overview)o.overview=d.overview;
+      if(d.number_of_seasons)o.num_seasons=d.number_of_seasons;
+      MCACHE[ck]=o;
+    }).catch(()=>{});
+    return o;
+  });
 }
 const TV_BLOCKED=new Set([85552]); // Euphoria
 async function discover(type,genreId,page){
@@ -1476,17 +1488,11 @@ async function renderHome(){
       color:#2a2a2a;font-size:.8rem;font-family:'Cairo',sans-serif;">CINEMA ELDON · مدعوم بـ TMDB</footer>
   </div>`;
   // Try cache first
-  let t250=cacheGet('t250'),p1=cacheGet('mcu1'),p2=cacheGet('mcu2'),p3=cacheGet('mcu3'),
-      p4=cacheGet('mcu4'),p5=cacheGet('mcu5'),hp=cacheGet('hp'),dc=cacheGet('dc');
-
-  const missing=!t250||!p1||!p2||!p3||!p4||!p5||!hp||!dc;
-  if(missing){
-    [t250,p1,p2,p3,p4,p5,hp,dc]=await Promise.all([
-      fetchTop250(),fetchColl(MCU_P1),fetchColl(MCU_P2),fetchColl(MCU_P3),
-      fetchColl(MCU_P4),fetchColl(MCU_P5),fetchColl(HP_LIST),fetchColl(DC_LIST)]);
-    cacheSet('t250',t250);cacheSet('mcu1',p1);cacheSet('mcu2',p2);cacheSet('mcu3',p3);
-    cacheSet('mcu4',p4);cacheSet('mcu5',p5);cacheSet('hp',hp);cacheSet('dc',dc);
-  }
+  // Instant — no await needed, fetch runs in background
+  const t250=fetchTop250();
+  const p1=fetchColl(MCU_P1),p2=fetchColl(MCU_P2),p3=fetchColl(MCU_P3);
+  const p4=fetchColl(MCU_P4),p5=fetchColl(MCU_P5);
+  const hp=fetchColl(HP_LIST),dc=fetchColl(DC_LIST);
   const HERO_IDS=new Set([120, 121, 122, 155, 238, 240, 272, 278, 389, 671, 672, 673, 674, 675, 767, 769, 807, 1724, 1726, 10138, 10195, 12444, 12445, 22970, 24428, 49026, 68721, 76338, 99861, 100402, 102899, 118340, 271110, 283995, 284052, 284053, 284054, 299534, 299536, 299537, 315635, 361743, 363088, 400160, 447365, 497698, 524434, 533535, 566525, 616037, 616649, 634649, 640146, 800369, 822119, 986056]);
   const heroPool=[...t250,...p1,...p2,...p3,...p4,...p5,...hp,...dc]
     .filter(m=>(m.backdrop||m.poster)&&HERO_IDS.has(m.tmdb_id));
@@ -1879,4 +1885,8 @@ async function renderBooks(){
     <select id="bk_fmt" style="padding:12px 14px;background:#1a1a1a;border:1px solid rgba(255,255,255,.1);
       border-radius:10px;color:#888;font-family:'Cairo',sans-serif;cursor:pointer;outline:none;">
       <option value="">كل الصيغ</option>
-      <option value="pdf">PDF</
+      <option value="pdf">PDF</option>
+      <option value="epub">EPUB</option>
+    </select>
+    <button onclick="searchBooks()"
+      style="padding:12px 24px;background:linear-gradient(135deg,#c9a84c,#8a6a20);bo
