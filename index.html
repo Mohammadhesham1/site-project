@@ -1714,8 +1714,15 @@ async function searchBooks(page=1){
   if(page===1&&res)res.innerHTML='';
   if(load)load.style.display='block';
   try{
-    const params=new URLSearchParams({q,page,lang,format:fmt});
-    const r=await fetch('/.netlify/functions/search?'+params);
+    const params=new URLSearchParams({query:q,page});
+    if(lang)params.set('language',lang);
+    if(fmt)params.set('format',fmt);
+    const r=await fetch('https://annas-archive-api.p.rapidapi.com/searchBook?'+params,{
+      headers:{
+        'X-RapidAPI-Key':'6063f46b64msh60311f8db150077p1a9e1djsn408e2c59887f',
+        'X-RapidAPI-Host':'annas-archive-api.p.rapidapi.com'
+      }
+    });
     const d=await r.json();
     BK_TOTAL=d.totalPages||1;
     if(load)load.style.display='none';
@@ -1771,7 +1778,12 @@ async function searchBooks(page=1){
 async function openBook(b){
   // Get download link via our function
   try{
-    const r=await fetch('/.netlify/functions/download?md5='+b.md5);
+    const r=await fetch('https://annas-archive-api.p.rapidapi.com/downloadBook?md5='+b.md5,{
+      headers:{
+        'X-RapidAPI-Key':'6063f46b64msh60311f8db150077p1a9e1djsn408e2c59887f',
+        'X-RapidAPI-Host':'annas-archive-api.p.rapidapi.com'
+      }
+    });
     const d=await r.json();
     // d is array of download URLs
     const links=Array.isArray(d)?d:(d.links||d.downloadLinks||[]);
@@ -1784,14 +1796,11 @@ async function openBook(b){
     const dlBtn=document.getElementById('pdf_download');
     if(!modal||!iframe)return;
     // Use proxy for PDF, direct for epub
-    const proxyUrl=b.format==='pdf'
-      ?'/.netlify/functions/proxy?url='+encodeURIComponent(url)
-      :url;
     if(title)title.textContent=b.title||'';
     if(dlBtn){dlBtn.href=url;dlBtn.setAttribute('download',b.title||'book');}
-    // For PDF: use PDF.js viewer
+    // Use PDF.js for PDF, direct for epub
     if(b.format==='pdf'){
-      iframe.src='https://mozilla.github.io/pdf.js/web/viewer.html?file='+encodeURIComponent('https://12angryfilms.netlify.app/.netlify/functions/proxy?url='+encodeURIComponent(url));
+      iframe.src='https://mozilla.github.io/pdf.js/web/viewer.html?file='+encodeURIComponent(url);
     } else {
       iframe.src=url;
     }
@@ -1856,34 +1865,4 @@ async function renderBooks(){
     <button onclick="closePdf()" style="background:none;border:none;color:#888;cursor:pointer;font-size:1.4rem;padding:4px 10px;">←</button>
     <span id="pdf_title" style="color:#f0f0f0;font-family:'Cairo',sans-serif;font-size:.9rem;
       max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
-    <a id="pdf_download" href="#" style="background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);
-      border-radius:8px;color:#c9a84c;padding:7px 14px;font-family:'Cairo',sans-serif;font-size:.8rem;text-decoration:none;">⬇ تحميل</a>
-  </div>
-  <iframe id="pdf_iframe" style="flex:1;border:none;width:100%;background:#1a1a1a;"></iframe>
-</div>`;
-  // Auto-search on open
-  setTimeout(()=>{
-    const inp=document.getElementById('bk_input');
-    if(inp){inp.value='رواية';searchBooks();}
-  },100);
-}
-
-// ─────────────────────────────────────────
-//  BOOT
-// ─────────────────────────────────────────
-(async function boot(){
-  try{
-    renderApp('home');
-    injectNav();
-    // Hide loading immediately after skeleton renders
-    const l=document.getElementById('loading');
-    if(l){l.style.opacity='0';setTimeout(()=>{if(l.parentNode)l.parentNode.removeChild(l);},400);}
-  }catch(e){
-    console.error(e);
-    const l=document.getElementById('loading');
-    if(l)l.style.display='none';
-  }
-})();
-</script>
-</body>
-</html>
+    <a id="pdf_download" href="#" style="background:rgba(201,168,76,.12);border
